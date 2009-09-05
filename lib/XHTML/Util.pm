@@ -10,13 +10,12 @@ use Path::Class;
 
 use Scalar::Util qw( blessed );
 
-our $VERSION = "0.04";
+our $VERSION = "0.99_01";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
 our $FRAGMENT_SELECTOR = "div[title='$TITLE_ATTR']";
 our $FRAGMENT_XPATH = HTML::Selector::XPath::selector_to_xpath($FRAGMENT_SELECTOR);
-
 
 my $isKnown = \%HTML::Tagset::isKnown;
 my $emptyElement = \%HTML::Tagset::emptyElement;
@@ -694,21 +693,23 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.04
+0.99_01
 
 =head1 SYNOPSIS
 
  use strict;
  use warnings;
  use XHTML::Util;
- my $xu = XHTML::Util->new;
- print $xu->enpara("This is naked\n\ntext for making into paragraphs.");
+ my $xu = XHTML::Util
+    ->new(\"This is naked\n\ntext for making into paragraphs.");
+ print $xu->enpara, $/;
 
  # <p>This is naked</p>
  #
  # <p>text for making into paragraphs.</p>
 
- print $xu->enpara("<blockquote>Quotes should probably have paras.</blockquote>", "blockquote");
+ print enpara("blockquote",
+              "<blockquote>Quotes should probably have paras.</blockquote>");
  # <blockquote>
  # <p>Quotes should probably have paras.</p>
  # </blockquote>

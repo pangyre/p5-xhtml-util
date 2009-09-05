@@ -7,7 +7,6 @@ use File::Spec;
 use Path::Class;
 use lib File::Spec->catfile($FindBin::Bin, '../lib');
 use XHTML::Util;
-use overload '""' => sub { shift->stringify }, fallback => 1;
 
 dies_ok( sub { my $xu = XHTML::Util->new },
          "XHTML::Util->new dies without content" );
@@ -33,7 +32,6 @@ dies_ok( sub { my $xu = XHTML::Util->new },
 
     is( $enparaed, $after->slurp,
         "Enpara'ed content of 'before' matches 'after'" );
-
 }
 
 __END__
