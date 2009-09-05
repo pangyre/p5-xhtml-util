@@ -1,0 +1,15 @@
+Changes file for XHTML::Util
+
+0.04    2009
+        - 
+
+0.03    20090314
+        - Embarrassing Pod typo fixed; couple other things tweaked.
+
+0.02    20090314
+        - Added a skosh of Pod; corrected SEE ALSO section.
+        - Fixed a bug with parsing empty elements like br and hr.
+        - Surfaced the remove() method.
+
+0.01    20090313
+        - Alpha release; plenty o' stuff undone but a nice start.
