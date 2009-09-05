@@ -1,0 +1,12 @@
+<p>One.</p>
+
+<p>Two.</p>
+
+<p>Three.<br/>
+Three point five.</p>
+
+<p>Four.</p>
+
+<p>.</p>
+
+<p>Six.</p>

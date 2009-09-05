@@ -25,3 +25,8 @@ WriteAll;
 
 __END__
 
+2.6.2?
+    XML::LibXML::LIBXML_DOTTED_VERSION
+2.7.0 better
+
+

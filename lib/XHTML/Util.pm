@@ -2,19 +2,21 @@ package XHTML::Util;
 use strict;
 use warnings;
 no warnings "uninitialized";
-use Encode;
-use Carp; # By verbosity?
-use Scalar::Util "blessed";
-use HTML::Tagset 3.02 ();
-use HTML::Entities;
+use Carp;
 use XML::LibXML;
+use HTML::Tagset ();
 use HTML::Selector::XPath ();
-use HTML::TokeParser::Simple;
-use LWP::Simple; # external styles
-use CSS::Tiny;
+use Path::Class;
+
+use Scalar::Util qw( blessed );
 
 our $VERSION = "0.04";
 our $AUTHORITY = 'cpan:ASHLEY';
+our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
+
+our $FRAGMENT_SELECTOR = "div[title='$TITLE_ATTR']";
+our $FRAGMENT_XPATH = HTML::Selector::XPath::selector_to_xpath($FRAGMENT_SELECTOR);
+
 
 my $isKnown = \%HTML::Tagset::isKnown;
 my $emptyElement = \%HTML::Tagset::emptyElement;
@@ -34,13 +36,330 @@ my $isBlockLevel = { map {; $_ => 1 }
                      grep { ! ( $isPhraseMarkup->{$_} || $isFormElement->{$_} ) }
                      keys %{$isBodyElement}
                  };
+# use YAML; die YAML::Dump($isBlockLevel);
 
 sub new {
     my $class = shift;
-    my $content = shift || "";
+    my $arg = shift or croak "new requires an argument";
     my $self = bless {}, $class;
+
+    if ( ref($arg) eq "SCALAR" )
+    {
+        #$self->_original_string( $$arg );
+        die;
+    }
+    elsif ( blessed($arg) eq "Path::Class::File" )
+    {
+        $self->_parse( scalar $arg->slurp );
+    }
+    elsif ( blessed($arg) and $arg->can("getlines") )
+    {
+        $self->_parse( join("", $arg->getlines) );
+    }
+    else
+    {
+        $self->_parse( scalar Path::Class::File->new($arg)->slurp );
+    }
     $self;
 }
+
+sub debug {
+    my $self = shift;
+    $self->{_debug} = shift if @_;
+    $self->{_debug};
+}
+
+sub as_string {
+    my $self = shift;
+    if ( $self->{_type} eq 'document' )
+    {
+        return $self->doc->as_string(1);
+    }
+    elsif ( $self->{_type} eq 'fragment' )
+    {
+        return $self->_original_string;
+    }
+    else
+    {
+        die "No type was found, internal issue :(";
+    }
+}
+
+sub _parse {
+    my $self = shift;
+    $self->{_original_string} = shift;
+
+    if ( $self->{_original_string} =~ /\A(?:<\W[^>]+>|\s+)*<html/i )
+    {
+        $self->{_type} = "document";
+        $self->{_doc} = $self->parser->parse_html_string($self->{_original_string});
+    }
+    else
+    {
+        $self->{_type} = "fragment";
+        $self->{_doc} = $self->parser
+            ->parse_html_string(join("\n",
+                                     sprintf('<div title="%s">',
+                                             $TITLE_ATTR
+                                            ),
+                                     $self->{_original_string},
+                                     '</div>')
+            );
+    }
+
+    $self->root->normalize;
+    $self->doc;
+}
+
+sub root {
+    +shift->doc->getDocumentElement;
+}
+
+sub doc {
+    +shift->{_doc};
+}
+
+sub parser {
+    my $self = shift;
+    return $self->{_parser} if $self->{_parser};
+    $self->{_parser} = XML::LibXML->new;
+    $self->{_parser}->recover_silently(1);
+    $self->{_parser};
+}
+
+sub _original_string {
+    my $self = shift;
+    $self->{_original_string} ||= shift;
+}
+
+sub _return {
+    my $self = shift;
+    my $callers_wantarray = [ caller(1) ]->[5];
+    return unless defined $callers_wantarray; # Void context.
+
+    if ( $self->{_type} eq 'document' )
+    {
+        return $self->doc->serialize(1);
+    }
+    elsif ( $self->{_type} eq 'fragment' )
+    {
+        return _trim($self->as_fragment);
+    }
+    else
+    {
+        die "Stupid, stupid, developer...";
+    }
+}
+
+sub _sanitize_fragment {
+    my $self = shift;
+    my $fragment = shift or return;
+#    $self->_fragment_to_xhtml($fragment);
+    $fragment = Encode::decode_utf8($fragment);
+    my $p = HTML::TokeParser::Simple->new(\$fragment);
+    my $renew = "";
+    while ( my $token = $p->get_token )
+    {
+        # warn sprintf("%10s %10s %s\n",  $token->[-1], $token->get_tag, blessed($token));
+        if ( $isKnown->{$token->get_tag} )
+        {
+            if ( $token->is_start_tag )
+            {
+                my @pair;
+                for my $attr ( @{ $token->get_attrseq } )
+                {
+                    next if $attr eq "/";
+                    push @pair, join("=", $attr, '"' . encode_entities(decode_entities($token->get_attr($attr))) . '"');
+                }
+                $renew .= "<" . join(" ", $token->get_tag, @pair);
+                $renew .= ( $token->get_attr("/") || $emptyElement->{$token->get_tag} ) ? "/>" : ">";
+            }
+            else
+            {
+                $renew .= $token->as_is;
+            }
+        }
+        else
+        {
+            $renew .= encode_entities(decode_entities($token->as_is));
+        }
+    }
+    return $renew;
+}
+
+sub body {
+    [ shift->doc->findnodes("//body") ]->[0];
+}
+
+sub head {
+    [ shift->doc->findnodes("//head") ]->[0];
+}
+
+sub as_fragment {
+    my ( $fragment ) = shift->doc->findnodes($FRAGMENT_XPATH);
+    my $out = "";
+    $out .= $_->serialize(1) for $fragment->childNodes;
+    return $out;
+}
+
+sub enpara {
+    my $self = shift;
+    my $selector = shift || $FRAGMENT_SELECTOR;
+
+    my $doc = $self->doc;
+    my $root = $doc->getDocumentElement;
+    warn "Selector: $selector" if $self->debug;
+    if ( my $xpath = HTML::Selector::XPath::selector_to_xpath($selector) )
+    {
+      NODE:
+        for my $designated_enpara ( $root->findnodes("$xpath") )
+        {
+            warn "*********", $designated_enpara->toString if $self->debug > 2;
+            next unless $designated_enpara->nodeType == 1;
+            if ( $designated_enpara->nodeName eq 'pre' )  # I don't think so, honky.
+            {
+                # Expand or leave it alone? or ->validate it...?
+                carp "It makes no sense to enpara within a <pre/>; skipping";
+                next NODE;
+            }
+            next unless $isBlockLevel->{$designated_enpara->nodeName};
+
+            _enpara_this_nodes_content($designated_enpara, $doc);
+        }
+    }
+    _enpara_this_nodes_content($root, $doc);
+    $self->_return;
+}
+
+sub _enpara_this_nodes_content {
+    my ( $parent, $doc ) = @_;
+    my $lastChild = $parent->lastChild;
+    my @naked_block;
+    for my $node ( $parent->childNodes )
+    {
+        if ( $isBlockLevel->{$node->nodeName}
+             or
+             $node->nodeName eq "a" # special case block level, so IGNORE
+             and
+             grep { $_->nodeName eq "img" } $node->childNodes
+             )
+        {
+            next unless @naked_block; # nothing to enblock
+            my $p = $doc->createElement("p");
+            $p->setAttribute("enpara","enpara");
+            $p->appendChild($_) for @naked_block;
+            $parent->insertBefore( $p, $node )
+                if $p->textContent =~ /\S/;
+            @naked_block = ();
+        }
+        elsif ( $node->nodeType == 3
+                and
+                $node->nodeValue =~ /(?:[^\S\n]*\n){2,}/
+                )
+        {
+            my $text = $node->nodeValue;
+            my @text_part = map { $doc->createTextNode($_) }
+                split /([^\S\n]*\n){2,}/, $text;
+
+            my @new_node;
+            for ( my $x = 0; $x < @text_part; $x++ )
+            {
+                if ( $text_part[$x]->nodeValue =~ /\S/ )
+                {
+                    push @naked_block, $text_part[$x];
+                }
+                else # it's a blank newline node so _STOP_
+                {
+                    next unless @naked_block;
+                    my $p = $doc->createElement("p");
+                    $p->setAttribute("enpara","enpara");
+                    $p->appendChild($_) for @naked_block;
+                    @naked_block = ();
+                    push @new_node, $p;
+                }
+            }
+            if ( @new_node )
+            {
+                $parent->insertAfter($new_node[0], $node);
+                for ( my $x = 1; $x < @new_node; $x++ )
+                {
+                    $parent->insertAfter($new_node[$x], $new_node[$x-1]);
+                }
+            }
+            $node->unbindNode;
+        }
+        else
+        {
+            push @naked_block, $node; # if $node->nodeValue =~ /\S/;
+        }
+
+        if ( $node->isSameNode( $lastChild )
+             and @naked_block )
+        {
+            my $p = $doc->createElement("p");
+            $p->setAttribute("enpara","enpara");
+            $p->appendChild($_) for ( @naked_block );
+            $parent->appendChild($p) if $p->textContent =~ /\S/;
+        }
+    }
+
+    my $newline = $doc->createTextNode("\n");
+    my $br = $doc->createElement("br");
+
+    for my $p ( $parent->findnodes('//p[@enpara="enpara"]') )
+    {
+        $p->removeAttribute("enpara");
+        $parent->insertBefore( $newline->cloneNode, $p );
+        $parent->insertAfter( $newline->cloneNode, $p );
+
+        my $frag = $doc->createDocumentFragment();
+
+        my @kids = $p->childNodes();
+        for ( my $i = 0; $i < @kids; $i++ )
+        {
+            my $kid = $kids[$i];
+            next unless $kid->nodeName eq "#text";
+            my $text = $kid->nodeValue;
+            $text =~ s/\A\r?\n// if $i == 0;
+            $text =~ s/\r?\n\z// if $i == $#kids;
+
+            my @lines = map { $doc->createTextNode($_) }
+                split /(\r?\n)/, $text;
+
+            for ( my $i = 0; $i < @lines; $i++ )
+            {
+                $frag->appendChild($lines[$i]);
+                unless ( $i == $#lines
+                         or
+                         $lines[$i]->nodeValue =~ /\A\r?\n\z/ )
+                {
+                    $frag->appendChild($br->cloneNode);
+                }
+            }
+            $kid->replaceNode($frag);
+        }
+    }
+}
+
+sub _trim {
+    s/\A\s+|\s+\z//g for @_;
+    wantarray ? @_ : $_[0];
+}
+
+1;
+
+__END__
+
+use Encode;
+use Carp; # By verbosity?
+use Scalar::Util "blessed";
+use HTML::Tagset 3.02 ();
+use HTML::Entities;
+use HTML::TokeParser::Simple;
+use LWP::Simple; # external styles
+use CSS::Tiny;
+
+
 
 sub strip_tags {
     my $self = shift;
@@ -251,7 +570,7 @@ sub inline_stylesheets { # (names/paths) / external sheets allowed.
 # :before and :after stuff is still missing
 # ?? <style type="text/css" title="currentStyle" media="screen">
 # ?? needs to read "@import" and link rel="stylesheet" src=".."
-
+    
     my $doc = $self->xml_parser->parse_html_string( $thing ) unless ref($thing); 
     $doc ||= $self->xml_parser->parse_html_file( $thing ) if -e $thing;
     $doc ||= $self->xml_parser->parse_html_string( join("",$thing->getlines) )
@@ -317,6 +636,7 @@ sub html_to_xhtml { # Handles docs or fragments.
 sub _fragment_to_body_node {
     my $self = shift;
     my $html = \$_[0];
+
     my $parser = $self->xml_parser();
     $parser->recover(1);
     $parser->recover_silently(1);
@@ -324,41 +644,6 @@ sub _fragment_to_body_node {
     return $body;
 }
 
-sub _sanitize_fragment {
-    my $self = shift;
-    my $fragment = shift or return;
-#    $self->_fragment_to_xhtml($fragment);
-    $fragment = Encode::decode_utf8($fragment);
-    my $p = HTML::TokeParser::Simple->new(\$fragment);
-    my $renew = "";
-    while ( my $token = $p->get_token )
-    {
-        # warn sprintf("%10s %10s %s\n",  $token->[-1], $token->get_tag, blessed($token));
-        if ( $isKnown->{$token->get_tag} )
-        {
-            if ( $token->is_start_tag )
-            {
-                my @pair;
-                for my $attr ( @{ $token->get_attrseq } )
-                {
-                    next if $attr eq "/";
-                    push @pair, join("=", $attr, '"' . encode_entities(decode_entities($token->get_attr($attr))) . '"');
-                }
-                $renew .= "<" . join(" ", $token->get_tag, @pair);
-                $renew .= ( $token->get_attr("/") || $emptyElement->{$token->get_tag} ) ? "/>" : ">";
-            }
-            else
-            {
-                $renew .= $token->as_is;
-            }
-        }
-        else
-        {
-            $renew .= encode_entities(decode_entities($token->as_is));
-        }
-    }
-    return $renew;
-}
 
 sub _fragment_to_xhtml {
     my $self = shift;
@@ -679,3 +964,5 @@ HTML TO XHTML will have to strip depracated shite like center and font.
 
 
 12212g
+
+VALID_ONLY FLAG?
