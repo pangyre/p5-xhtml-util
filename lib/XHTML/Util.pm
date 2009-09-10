@@ -7,6 +7,7 @@ use XML::LibXML;
 use HTML::Tagset ();
 use HTML::Entities qw( encode_entities decode_entities );
 use HTML::Selector::XPath ();
+use HTML::DTD;
 use Path::Class;
 use Encode;
 use Scalar::Util qw( blessed );
@@ -48,7 +49,6 @@ sub new {
     {
         $self->_parse( $$arg );
         # $self->_original_string( $$arg );
-        # die;
     }
     elsif ( blessed($arg) eq "Path::Class::File" )
     {
@@ -80,6 +80,7 @@ sub as_string {
     elsif ( $self->{_type} eq 'fragment' )
     {
         my $out = "";
+        # $out .= $_->serialize(1)
         $out .= $_->serialize(1)
             for [ $self->root->findnodes($FRAGMENT_XPATH) ]->[0]->childNodes;
         return $out;
@@ -110,9 +111,10 @@ sub _parse {
 
         $self->{_doc} = $self->parser
             ->parse_html_string(join("\n",
+                                     "<head><title/></head>",
                                      sprintf('<div title="%s">',
                                              $TITLE_ATTR
-                                            ),
+                                     ),
                                      Encode::decode_utf8($self->{_sanitized}),
                                      '</div>')
             );
@@ -162,6 +164,23 @@ sub _return {
     {
         die "Stupid, stupid, developer...";
     }
+}
+
+# Returns undef if no action is taken.
+# Returns 1 if action is taken and validation is successful.
+
+sub fix {
+    my $self = shift;
+    my $dtd_name = shift || "xhtml1-transitional";
+    # warn $self->doc->serialize(1);
+    return if $self->doc->is_valid;
+
+    my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
+    my $dtd = XML::LibXML::Dtd->parse_string($dtd_string);
+
+    $self->doc->is_valid($dtd) or carp "Could not fix the problems with this document";
+    $self->doc->validate($dtd);
+    return 1;
 }
 
 sub _sanitize {
