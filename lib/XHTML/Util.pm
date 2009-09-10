@@ -175,6 +175,15 @@ sub fix {
     # warn $self->doc->serialize(1);
     return if $self->doc->is_valid;
 
+    for my $fixable ( qw( img ) )
+    {
+        my $method = "_fix_$fixable";
+        for my $node ( $self->root->findnodes("//$fixable") )
+        {
+            $self->$method($node);
+        }
+    }
+
     my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
     my $dtd = XML::LibXML::Dtd->parse_string($dtd_string);
 
@@ -379,6 +388,18 @@ sub _enpara_this_nodes_content {
 sub _trim {
     s/\A\s+|\s+\z//g for @_;
     wantarray ? @_ : $_[0];
+}
+
+sub _fix_img {
+    my ( $self, $img ) = @_;
+    unless ( $img->hasAttribute("src") )
+    {
+        croak "There is no way to fix an image without a source";
+    }
+    unless ( $img->hasAttribute("alt") )
+    {
+        $img->setAttribute("alt", $img->getAttribute("src"));
+    }
 }
 
 1;

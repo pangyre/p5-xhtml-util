@@ -13,7 +13,9 @@ local $/ = "\n::TEST::DATA::\n";
 
 while ( <DATA> )
 {
-    my ( $input, $expected ) = _trim(split /::/);
+    chomp;
+    my ( $input, $expected ) = _trim(split /::/)
+        or next;
 
     my $xu = XHTML::Util->new(\$input);
     $xu->fix;
@@ -45,12 +47,6 @@ sub _trim {
 
 ::TEST::DATA::
 
-<img src='/moo.cow'>
-::
-<img src="/moo.cow" alt="/moo.com"/>
-
-::TEST::DATA::
-
 <abbr>SS</abbr>
 ::
 <abbr title="[SS]">SS</abbr>
@@ -62,3 +58,11 @@ __DATA__
 ::
 <p>OH HAI!
 </p>
+
+::TEST::DATA::
+
+<img src='/moo.cow'>
+::
+<img src="/moo.cow" alt="/moo.cow"/>
+
+::TEST::DATA::
