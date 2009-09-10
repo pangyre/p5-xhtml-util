@@ -5,10 +5,12 @@ no warnings "uninitialized";
 use Carp;
 use XML::LibXML;
 use HTML::Tagset ();
+use HTML::Entities qw( encode_entities decode_entities );
 use HTML::Selector::XPath ();
 use Path::Class;
-
+use Encode;
 use Scalar::Util qw( blessed );
+use HTML::TokeParser::Simple;
 
 our $VERSION = "0.99_01";
 our $AUTHORITY = 'cpan:ASHLEY';
@@ -30,7 +32,7 @@ my $isFormElement = \%HTML::Tagset::isFormElement;
 #my $p_closure_barriers = \@HTML::Tagset::p_closure_barriers;
 
 # Accommodate HTML::TokeParser's idea of a "tag."
-for my $t ( keys %{$emptyElement} ) { $isKnown->{"$t/"} = 1 }
+$isKnown->{"$_/"} = 1 for keys %{$emptyElement};
 my $isBlockLevel = { map {; $_ => 1 }
                      grep { ! ( $isPhraseMarkup->{$_} || $isFormElement->{$_} ) }
                      keys %{$isBodyElement}
@@ -44,8 +46,9 @@ sub new {
 
     if ( ref($arg) eq "SCALAR" )
     {
-        #$self->_original_string( $$arg );
-        die;
+        $self->_parse( $$arg );
+        # $self->_original_string( $$arg );
+        # die;
     }
     elsif ( blessed($arg) eq "Path::Class::File" )
     {
@@ -76,7 +79,10 @@ sub as_string {
     }
     elsif ( $self->{_type} eq 'fragment' )
     {
-        return $self->_original_string;
+        my $out = "";
+        $out .= $_->serialize(1)
+            for [ $self->root->findnodes($FRAGMENT_XPATH) ]->[0]->childNodes;
+        return $out;
     }
     else
     {
@@ -86,22 +92,28 @@ sub as_string {
 
 sub _parse {
     my $self = shift;
-    $self->{_original_string} = shift;
+    $self->{_sanitized} =
+        $self->_sanitize( $self->{_original_string} = shift );
 
     if ( $self->{_original_string} =~ /\A(?:<\W[^>]+>|\s+)*<html/i )
     {
         $self->{_type} = "document";
-        $self->{_doc} = $self->parser->parse_html_string($self->{_original_string});
+        $self->{_doc} = $self->parser->parse_html_string($self->{_sanitized});
+        # Special case, doc contains ONLY 1 p and it's first and last
+        # child of body then we should replace it with the FRAGMENT
+        # holder div.
     }
     else
     {
+        # SHOULD we sanitize first?
         $self->{_type} = "fragment";
+
         $self->{_doc} = $self->parser
             ->parse_html_string(join("\n",
                                      sprintf('<div title="%s">',
                                              $TITLE_ATTR
                                             ),
-                                     $self->{_original_string},
+                                     Encode::decode_utf8($self->{_sanitized}),
                                      '</div>')
             );
     }
@@ -123,12 +135,14 @@ sub parser {
     return $self->{_parser} if $self->{_parser};
     $self->{_parser} = XML::LibXML->new;
     $self->{_parser}->recover_silently(1);
+    $self->{_parser}->keep_blanks(1);
     $self->{_parser};
 }
 
 sub _original_string {
     my $self = shift;
     $self->{_original_string} ||= shift;
+    $self->{_original_string};# ||= Encode::encode_utf8( shift ); #321
 }
 
 sub _return {
@@ -138,7 +152,7 @@ sub _return {
 
     if ( $self->{_type} eq 'document' )
     {
-        return $self->doc->serialize(1);
+        return $self->doc->serialize(1,"UTF-8");
     }
     elsif ( $self->{_type} eq 'fragment' )
     {
@@ -150,10 +164,9 @@ sub _return {
     }
 }
 
-sub _sanitize_fragment {
+sub _sanitize {
     my $self = shift;
     my $fragment = shift or return;
-#    $self->_fragment_to_xhtml($fragment);
     $fragment = Encode::decode_utf8($fragment);
     my $p = HTML::TokeParser::Simple->new(\$fragment);
     my $renew = "";
@@ -168,7 +181,10 @@ sub _sanitize_fragment {
                 for my $attr ( @{ $token->get_attrseq } )
                 {
                     next if $attr eq "/";
-                    push @pair, join("=", $attr, '"' . encode_entities(decode_entities($token->get_attr($attr))) . '"');
+                    my $value = encode_entities(decode_entities($token->get_attr($attr)));
+                    push @pair, join("=",
+                                     $attr,
+                                     qq{"$value"});
                 }
                 $renew .= "<" . join(" ", $token->get_tag, @pair);
                 $renew .= ( $token->get_attr("/") || $emptyElement->{$token->get_tag} ) ? "/>" : ">";
@@ -197,13 +213,13 @@ sub head {
 sub as_fragment {
     my ( $fragment ) = shift->doc->findnodes($FRAGMENT_XPATH);
     my $out = "";
-    $out .= $_->serialize(1) for $fragment->childNodes;
+    $out .= $_->serialize(1,"UTF-8") for $fragment->childNodes;
     return $out;
 }
 
 sub enpara {
     my $self = shift;
-    my $selector = shift || $FRAGMENT_SELECTOR;
+    my $selector = shift || "$FRAGMENT_SELECTOR,$FRAGMENT_SELECTOR *";
 
     my $doc = $self->doc;
     my $root = $doc->getDocumentElement;
@@ -213,8 +229,9 @@ sub enpara {
       NODE:
         for my $designated_enpara ( $root->findnodes("$xpath") )
         {
-            warn "*********", $designated_enpara->toString if $self->debug > 2;
+            # warn "*********", $designated_enpara->toString if $self->debug > 2;
             next unless $designated_enpara->nodeType == 1;
+            next NODE if $designated_enpara->nodeName eq 'p';
             if ( $designated_enpara->nodeName eq 'pre' )  # I don't think so, honky.
             {
                 # Expand or leave it alone? or ->validate it...?
@@ -379,7 +396,7 @@ sub strip_tags {
         $node->replaceNode($fragment);
     }
     my $out = "";
-    $out .= $_->serialize(1) for $root->childNodes;
+    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
     _trim($out);
 }
 
@@ -391,7 +408,7 @@ sub _trim {
 sub remove { # Synonymous for remove_nodes, all gone.
     my $self = shift;
     # my $content = shift;
-    my $content = $self->_sanitize_fragment(shift) or return;
+    my $content = $self->_sanitize(shift) or return;
     my $xpath = HTML::Selector::XPath::selector_to_xpath(shift);
     carp "No selector was given to strip_tags" and return $content unless $xpath;
     my $root = blessed($content) =~ /\AXML::LibXML::/ ?
@@ -399,7 +416,7 @@ sub remove { # Synonymous for remove_nodes, all gone.
 
     $_->parentNode->removeChild($_) for $root->findnodes($xpath);
     my $out = "";
-    $out .= $_->serialize(1) for $root->childNodes;
+    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
     _trim($out);
 }
 
@@ -407,7 +424,7 @@ sub remove { # Synonymous for remove_nodes, all gone.
 
 sub enpara {
     my $self = shift;
-    my $content = $self->_sanitize_fragment(shift) or return;
+    my $content = $self->_sanitize(shift) or return;
     my $selector = shift;
 
     my $root = blessed($content) eq 'XML::LibXML::Element' ?
@@ -434,7 +451,7 @@ sub enpara {
     }
     _enpara_this_nodes_content($root, $doc);
     my $out = "";
-    $out .= $_->serialize(1) for $root->childNodes;
+    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
     _trim($out);
 }
 
@@ -615,7 +632,7 @@ sub inline_stylesheets { # (names/paths) / external sheets allowed.
             $node->removeAttribute("class");
         }
     }
-    return $doc->toString(1);
+    return $doc->serialize(1,"UTF-8");
 }
 
 sub _format_css {
@@ -657,7 +674,7 @@ sub _fragment_to_xhtml {
     for my $kid ( $target->childNodes ) {
         $kid->removeChild($_) for
             grep { $_->nodeType == 3 and $_->data !~ /\w/ } $kid->childNodes;
-        $out .= $kid->serialize(1);
+        $out .= $kid->serialize(1,"UTF-8");
     }
     return $out if defined wantarray;
     ${$html} = $out;
