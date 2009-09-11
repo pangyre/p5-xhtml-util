@@ -4,7 +4,7 @@ use warnings;
 no warnings "uninitialized";
 use Carp;
 use XML::LibXML;
-use HTML::Tagset ();
+use HTML::Tagset 3.02 ();
 use HTML::Entities qw( encode_entities decode_entities );
 use HTML::Selector::XPath ();
 use HTML::DTD;
@@ -74,13 +74,13 @@ sub debug {
 sub as_string {
     my $self = shift;
     my @args = @_ ? @_ : ( 1, "UTF-8" );
-    if ( $self->{_type} eq 'document' )
+    if ( $self->is_document )
     {
         die;
         # ? HTML String ?
         return _trim( Encode::decode_utf8( $self->doc->as_string(@args) ) );
     }
-    elsif ( $self->{_type} eq 'fragment' )
+    elsif ( $self->is_fragment )
     {
         my $out = "";
         $out .= $_->serialize(@args)
@@ -91,6 +91,14 @@ sub as_string {
     {
         die "No type was found, internal issue :(";
     }
+}
+
+sub is_document {
+    +shift->{_type} eq "document";
+}
+
+sub is_fragment {
+    +shift->{_type} eq "fragment";
 }
 
 sub _parse {
@@ -113,7 +121,7 @@ sub _parse {
 
         $self->{_doc} = $self->parser
             ->parse_html_string(join("\n",
-                                     "<html><head><title/></head><body>",
+                                     "<html><head><title></title></head><body>",
                                      sprintf('<div title="%s">',
                                              $TITLE_ATTR
                                      ),
@@ -156,11 +164,11 @@ sub _return {
     my $callers_wantarray = [ caller(1) ]->[5];
     return unless defined $callers_wantarray; # Void context.
 
-    if ( $self->{_type} eq 'document' )
+    if ( $self->is_document )
     {
         return $self->as_string;
     }
-    elsif ( $self->{_type} eq 'fragment' )
+    elsif ( $self->is_fragment )
     {
         return $self->as_string;
         return _trim($self->as_fragment);
@@ -252,7 +260,9 @@ sub as_fragment {
 
 sub enpara {
     my $self = shift;
-    my $selector = shift || "$FRAGMENT_SELECTOR,$FRAGMENT_SELECTOR *";
+    my $selector = shift;
+    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
+    $selector ||= "$base, $base *";
 
     my $doc = $self->doc;
     my $root = $doc->getDocumentElement;
@@ -262,7 +272,7 @@ sub enpara {
       NODE:
         for my $designated_enpara ( $root->findnodes("$xpath") )
         {
-            warn "FOUND ", $designated_enpara->nodeName, $/;
+            # warn "FOUND ", $designated_enpara->nodeName, $/;
             # warn "*********", $designated_enpara->toString if $self->debug > 2;
             next unless $designated_enpara->nodeType == 1;
             next NODE if $designated_enpara->nodeName eq 'p';
@@ -486,7 +496,7 @@ sub _enpara_this_nodes_content {
         {
             next unless @naked_block; # nothing to enblock
             my $p = $doc->createElement("p");
-            $p->setAttribute("enpara","enpara");
+            $p->setAttribute("enpara","enpara"); # Placeholder.
             $p->appendChild($_) for @naked_block;
             $parent->insertBefore( $p, $node )
                 if $p->textContent =~ /\S/;
