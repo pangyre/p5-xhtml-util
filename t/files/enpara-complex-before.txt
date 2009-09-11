@@ -1,0 +1,60 @@
+
+
+Not in
+the first abutting.<p>Did it manually here.</p>¡Déjà vu!
+
+<b>Didn't</b> <i>do it.</i>
+
+<p>Did it manually again in the third.</p>
+
+<pre>
+This is the fourth block and has
+
+
+“triple spacing in it and an &amp;”
+</pre>
+Didn’t do it here
+in
+the fifth.<p>Did it here in
+the sixth mashed up against the fifth so we
+could not possibly split on whitespace.</p>
+
+<hr/>
+
+<div class="enpara">
+Have a <b>bold</b> here that needs a paragraph.
+
+<p>real para back into the mix</p>
+
+<div><div><div><table><tr><td>
+<div><ul><li><blockquote>quote one
+
+quote two
+quote two.five</blockquote></li>
+<ol><li>
+  <p>Surprise!</p>
+  Naked!!!
+    </li>
+</ol>
+</li></ul>
+</div>
+</td></tr></table>
+</div></div></div>
+</div>
+
+<b>PangyreSoft</b>
+
+
+
+
+
+
+
+
+¶
+
+
+
+
+
+

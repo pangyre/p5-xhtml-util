@@ -73,17 +73,19 @@ sub debug {
 
 sub as_string {
     my $self = shift;
+    my @args = @_ ? @_ : ( 1, "UTF-8" );
     if ( $self->{_type} eq 'document' )
     {
-        return $self->doc->as_string(1);
+        die;
+        # ? HTML String ?
+        return _trim( Encode::decode_utf8( $self->doc->as_string(@args) ) );
     }
     elsif ( $self->{_type} eq 'fragment' )
     {
         my $out = "";
-        # $out .= $_->serialize(1)
-        $out .= $_->serialize(1)
+        $out .= $_->serialize(@args)
             for [ $self->root->findnodes($FRAGMENT_XPATH) ]->[0]->childNodes;
-        return $out;
+        return _trim( Encode::decode_utf8($out) );
     }
     else
     {
@@ -111,12 +113,13 @@ sub _parse {
 
         $self->{_doc} = $self->parser
             ->parse_html_string(join("\n",
-                                     "<head><title/></head>",
+                                     "<html><head><title/></head><body>",
                                      sprintf('<div title="%s">',
                                              $TITLE_ATTR
                                      ),
-                                     Encode::decode_utf8($self->{_sanitized}),
-                                     '</div>')
+                                     $self->{_sanitized},
+                                     #Encode::encode_utf8($self->{_sanitized}),
+                                     '</div></body></html>')
             );
     }
 
@@ -144,20 +147,22 @@ sub parser {
 sub _original_string {
     my $self = shift;
     $self->{_original_string} ||= shift;
-    $self->{_original_string};# ||= Encode::encode_utf8( shift ); #321
+#    $self->{_original_string} ||= Encode::encode_utf8( shift ); #321
+    $self->{_original_string};
 }
 
 sub _return {
-    my $self = shift;
+    my $self = shift; # 321 ARGS for serialize.
     my $callers_wantarray = [ caller(1) ]->[5];
     return unless defined $callers_wantarray; # Void context.
 
     if ( $self->{_type} eq 'document' )
     {
-        return $self->doc->serialize(1,"UTF-8");
+        return $self->as_string;
     }
     elsif ( $self->{_type} eq 'fragment' )
     {
+        return $self->as_string;
         return _trim($self->as_fragment);
     }
     else
@@ -172,7 +177,7 @@ sub _return {
 sub fix {
     my $self = shift;
     my $dtd_name = shift || "xhtml1-transitional";
-    # warn $self->doc->serialize(1);
+    # warn $self->doc->serialize(1,'UTF-8');
     return if $self->doc->is_valid;
 
     for my $fixable ( qw( img ) )
@@ -195,7 +200,7 @@ sub fix {
 sub _sanitize {
     my $self = shift;
     my $fragment = shift or return;
-    $fragment = Encode::decode_utf8($fragment);
+    #$fragment = Encode::decode_utf8($fragment);
     my $p = HTML::TokeParser::Simple->new(\$fragment);
     my $renew = "";
     while ( my $token = $p->get_token )
@@ -257,6 +262,7 @@ sub enpara {
       NODE:
         for my $designated_enpara ( $root->findnodes("$xpath") )
         {
+            warn "FOUND ", $designated_enpara->nodeName, $/;
             # warn "*********", $designated_enpara->toString if $self->debug > 2;
             next unless $designated_enpara->nodeType == 1;
             next NODE if $designated_enpara->nodeName eq 'p';
@@ -462,38 +468,8 @@ sub remove { # Synonymous for remove_nodes, all gone.
 
 # No... ? requires object->call shuffling to work : sub enpara_tag { +shift->{enpara_tag} = shift || "p"; }
 
-sub enpara {
-    my $self = shift;
-    my $content = $self->_sanitize(shift) or return;
-    my $selector = shift;
 
-    my $root = blessed($content) eq 'XML::LibXML::Element' ?
-        $content : $self->_fragment_to_body_node($content);
 
-    $root->normalize;
-    my $doc = $root->getOwnerDocument;
-
-    if ( my $xpath = HTML::Selector::XPath::selector_to_xpath($selector) )
-    {
-      NODE:
-        for my $designated_enpara ( $root->findnodes($xpath) )
-        {
-            next unless $designated_enpara->nodeType == 1;
-            if ( $designated_enpara->nodeName eq 'pre' )  # I don't think so, honky.
-            {
-                # Expand or leave it alone? or ->validate it...?
-                carp "It makes no sense to enpara within a <pre/>; skipping";
-                next NODE;
-            }
-            next unless $isBlockLevel->{$designated_enpara->nodeName};
-            _enpara_this_nodes_content($designated_enpara, $doc);
-        }
-    }
-    _enpara_this_nodes_content($root, $doc);
-    my $out = "";
-    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
-    _trim($out);
-}
 
 sub _enpara_this_nodes_content {
     my ( $parent, $doc ) = @_;

@@ -7,31 +7,47 @@ use File::Spec;
 use Path::Class;
 use lib File::Spec->catfile($FindBin::Bin, '../lib');
 use XHTML::Util;
+use Encode;
+use utf8;
 
-dies_ok( sub { my $xu = XHTML::Util->new },
-         "XHTML::Util->new dies without content" );
+# What happens with an empty string document?
 
 {
-    my $before = Path::Class::File->new("$FindBin::Bin/files/basics-before.txt");
-    my $after = Path::Class::File->new("$FindBin::Bin/files/basics-after.txt");
-    cmp_ok( $before->slurp, "ne", $after->slurp,
-            "Before and after differ");
+    my $before = <<"BEFORE";
+¶aragraph øne¡
 
-    ok( my $xu = XHTML::Util->new($before->stringify),
-        "XHTML::Util->new files/basics-before.txt" );
+¶aragraph †wo…
+BEFORE
 
-    $xu->debug(3);
+    my $after = <<"AFTER";
+<p>¶aragraph øne¡</p>
 
-    isa_ok( $xu, "XHTML::Util" );
+<p>¶aragraph †wo…</p>
+AFTER
 
-    is(XHTML::Util::_trim($xu->as_string), XHTML::Util::_trim(scalar $before->slurp),
+    cmp_ok($before, "ne", $after,
+           "Sanity check: before and after differ");
+
+    ok( my $xu = XHTML::Util->new(\$before),
+        "XHTML::Util->new(...)" );
+
+#    diag($xu->as_string);
+#    diag(chr(8230));
+
+
+    is(XHTML::Util::_trim($xu->as_string),
+       XHTML::Util::_trim($before),
        "Original content matches stringified object");
 
     ok( my $enparaed = $xu->enpara(),
         "Enpara'ing the content" );
 
-    is( $enparaed, $after->slurp,
-        "Enpara'ed content of 'before' matches 'after'" );
+    diag( XHTML::Util::_trim($xu->as_string) ) if $ENV{TEST_VERBOSE};
+
+    is(XHTML::Util::_trim($xu->as_string),
+       XHTML::Util::_trim($after),
+       "Basic test of enpara OK");
+
 }
 
 __END__
@@ -128,3 +144,26 @@ more of "So I kinda have a crush">[read more]</a>
 }
 
 __END__
+
+    my $diff = Algorithm::Diff->new( [ split /\n/, $enparaed ],
+                                     [ $after->slurp ] );
+
+    while ( $diff->Next() )
+    {
+        next   if  $diff->Same();
+        my $sep = '';
+        if(  ! $diff->Items(2)  ) {
+            diag(sprintf "%d,%dd%d\n",
+                $diff->Get(qw( Min1 Max1 Max2 )));
+        } elsif(  ! $diff->Items(1)  ) {
+            diag(sprintf "%da%d,%d\n",
+                $diff->Get(qw( Max1 Min2 Max2 )));
+        } else {
+            $sep = "---\n";
+            diag(sprintf "%d,%dc%d,%d\n",
+                $diff->Get(qw( Min1 Max1 Min2 Max2 )));
+        }
+        diag( "< $_" )  for  $diff->Items(1);
+        diag( $sep );
+        diag( "> $_" )  for  $diff->Items(2);
+    }

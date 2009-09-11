@@ -10,6 +10,7 @@ requires "HTML::Tagset" => 3;
 requires "XML::LibXML" => 1.6;
 requires "Scalar::Util" => undef;
 requires "HTML::Tagset" => 3.02;
+requires "HTML::DTD" => 0.03;
 requires "HTML::Entities" => undef;
 requires "CSS::Tiny" => undef;
 requires "HTML::Selector::XPath" => undef;

@@ -7,30 +7,42 @@ use File::Spec;
 use Path::Class;
 use lib File::Spec->catfile($FindBin::Bin, '../lib');
 use XHTML::Util;
-
-dies_ok( sub { my $xu = XHTML::Util->new },
-         "XHTML::Util->new dies without content" );
+use Algorithm::Diff;
+use Encode;
+use autodie;
 
 {
-    my $before = Path::Class::File->new("$FindBin::Bin/files/basics-before.txt");
-    my $after = Path::Class::File->new("$FindBin::Bin/files/basics-after.txt");
-    cmp_ok( $before->slurp, "ne", $after->slurp,
+    my $before = Path::Class::File->new("$FindBin::Bin/files/enpara-complex-before.txt");
+    open my $bfh, "<:utf8", $before;
+    $before =  do { local $/; <$bfh> };
+
+    my $after = Path::Class::File->new("$FindBin::Bin/files/enpara-complex-after.txt");
+    open my $afh, "<:utf8", $after;
+    $after =  do { local $/; <$afh> };
+
+    cmp_ok( XHTML::Util::_trim($before), "ne", XHTML::Util::_trim($after),
             "Before and after differ");
 
-    ok( my $xu = XHTML::Util->new($before->stringify),
-        "XHTML::Util->new files/basics-before.txt" );
+    ok( my $xu = XHTML::Util->new(\$before),
+        "XHTML::Util->new files/enpara-complex-before.txt->slurp" );
 
-    $xu->debug(3);
+    #    $xu->debug(3);
 
     isa_ok( $xu, "XHTML::Util" );
 
-    is(XHTML::Util::_trim($xu->as_string), XHTML::Util::_trim(scalar $before->slurp),
-       "Original content matches stringified object");
+#    is(XHTML::Util::_trim($xu->as_string),
+#       XHTML::Util::_trim($before),
+#       "Original content matches stringified object");
+
 
     ok( my $enparaed = $xu->enpara(),
         "Enpara'ing the content" );
 
-    is( $enparaed, $after->slurp,
+    my $save_after = Path::Class::File->new("/Users/apv/enpara-complex-after.txt");
+    my $fh = $save_after->openw;
+    print $fh $xu->doc->serialize;
+
+    is( $enparaed, $after,
         "Enpara'ed content of 'before' matches 'after'" );
 }
 
@@ -128,3 +140,26 @@ more of "So I kinda have a crush">[read more]</a>
 }
 
 __END__
+
+    my $diff = Algorithm::Diff->new( [ split /\n/, $enparaed ],
+                                     [ $after->slurp ] );
+
+    while ( $diff->Next() )
+    {
+        next   if  $diff->Same();
+        my $sep = '';
+        if(  ! $diff->Items(2)  ) {
+            diag(sprintf "%d,%dd%d\n",
+                $diff->Get(qw( Min1 Max1 Max2 )));
+        } elsif(  ! $diff->Items(1)  ) {
+            diag(sprintf "%da%d,%d\n",
+                $diff->Get(qw( Max1 Min2 Max2 )));
+        } else {
+            $sep = "---\n";
+            diag(sprintf "%d,%dc%d,%d\n",
+                $diff->Get(qw( Min1 Max1 Min2 Max2 )));
+        }
+        diag( "< $_" )  for  $diff->Items(1);
+        diag( $sep );
+        diag( "> $_" )  for  $diff->Items(2);
+    }
