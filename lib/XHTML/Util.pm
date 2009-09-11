@@ -22,10 +22,10 @@ our $FRAGMENT_XPATH = HTML::Selector::XPath::selector_to_xpath($FRAGMENT_SELECTO
 
 my $isKnown = \%HTML::Tagset::isKnown;
 my $emptyElement = \%HTML::Tagset::emptyElement;
-#my $canTighten = \%HTML::Tagset::canTighten;
-#my $isHeadElement = \%HTML::Tagset::isHeadElement;
 my $isBodyElement = \%HTML::Tagset::isBodyElement;
 my $isPhraseMarkup = \%HTML::Tagset::isPhraseMarkup;
+#my $canTighten = \%HTML::Tagset::canTighten;
+#my $isHeadElement = \%HTML::Tagset::isHeadElement;
 #my $isHeadOrBodyElement = \%HTML::Tagset::isHeadOrBodyElement;
 #my $isList = \%HTML::Tagset::isList;
 #my $isTableElement = \%HTML::Tagset::isTableElement;
