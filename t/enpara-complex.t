@@ -44,6 +44,10 @@ use autodie;
 
     is( $enparaed, $after,
         "Enpara'ed content of 'before' matches 'after'" );
+
+    ok( $xu->is_valid,
+        "Document validates" );
+
 }
 
 __END__

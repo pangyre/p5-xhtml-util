@@ -152,6 +152,22 @@ sub parser {
     $self->{_parser};
 }
 
+# Shortcuts.
+sub is_valid {
+    my $self = shift;
+    return 1 if $self->doc->is_valid;
+    my $dtd_name = shift || "xhtml1-transitional";
+    my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
+    $self->{_dtd} = XML::LibXML::Dtd->parse_string($dtd_string);
+    return $self->doc->is_valid($self->{_dtd});
+}
+
+sub validate {
+    my $self = shift;
+    return 1 if $self->is_valid;
+    return $self->doc->validate($self->{_dtd});
+}
+
 sub _original_string {
     my $self = shift;
     $self->{_original_string} ||= shift;
@@ -184,9 +200,8 @@ sub _return {
 
 sub fix {
     my $self = shift;
-    my $dtd_name = shift || "xhtml1-transitional";
     # warn $self->doc->serialize(1,'UTF-8');
-    return if $self->doc->is_valid;
+    return $self->_return if $self->is_valid;
 
     for my $fixable ( qw( img ) )
     {
@@ -197,12 +212,10 @@ sub fix {
         }
     }
 
-    my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
-    my $dtd = XML::LibXML::Dtd->parse_string($dtd_string);
-
-    $self->doc->is_valid($dtd) or carp "Could not fix the problems with this document";
-    $self->doc->validate($dtd);
-    return 1;
+    $self->is_valid()
+        or carp "Could not fix the problems with this document";
+    $self->validate();
+    return $self->_return;
 }
 
 sub _sanitize {
@@ -261,14 +274,17 @@ sub as_fragment {
 sub enpara {
     my $self = shift;
     my $selector = shift;
-    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
+#    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
+    my $base = "body";
     $selector ||= "$base, $base *";
+
 
     my $doc = $self->doc;
     my $root = $doc->getDocumentElement;
     warn "Selector: $selector" if $self->debug;
     if ( my $xpath = HTML::Selector::XPath::selector_to_xpath($selector) )
     {
+
       NODE:
         for my $designated_enpara ( $root->findnodes("$xpath") )
         {
@@ -284,15 +300,15 @@ sub enpara {
             }
             next unless $isBlockLevel->{$designated_enpara->nodeName};
 
-            _enpara_this_nodes_content($designated_enpara, $doc);
+            $self->_enpara_this_nodes_content($designated_enpara, $doc);
         }
     }
-    _enpara_this_nodes_content($root, $doc);
+    $self->_enpara_this_nodes_content($root, $doc);
     $self->_return;
 }
 
 sub _enpara_this_nodes_content {
-    my ( $parent, $doc ) = @_;
+    my ( $self, $parent, $doc ) = @_;
     my $lastChild = $parent->lastChild;
     my @naked_block;
     for my $node ( $parent->childNodes )
@@ -307,6 +323,7 @@ sub _enpara_this_nodes_content {
             next unless @naked_block; # nothing to enblock
             my $p = $doc->createElement("p");
             $p->setAttribute("enpara","enpara");
+            $p->setAttribute("line",__LINE__) if $self->debug > 4;
             $p->appendChild($_) for @naked_block;
             $parent->insertBefore( $p, $node )
                 if $p->textContent =~ /\S/;
@@ -333,6 +350,7 @@ sub _enpara_this_nodes_content {
                     next unless @naked_block;
                     my $p = $doc->createElement("p");
                     $p->setAttribute("enpara","enpara");
+                    $p->setAttribute("line",__LINE__) if $self->debug > 4;
                     $p->appendChild($_) for @naked_block;
                     @naked_block = ();
                     push @new_node, $p;
@@ -348,7 +366,7 @@ sub _enpara_this_nodes_content {
             }
             $node->unbindNode;
         }
-        else
+        elsif ( $node->nodeName !~ /\Ahead|body\z/ ) # Hack? Fix real reason? 321
         {
             push @naked_block, $node; # if $node->nodeValue =~ /\S/;
         }
@@ -358,6 +376,7 @@ sub _enpara_this_nodes_content {
         {
             my $p = $doc->createElement("p");
             $p->setAttribute("enpara","enpara");
+            $p->setAttribute("line",__LINE__) if $self->debug > 4;
             $p->appendChild($_) for ( @naked_block );
             $parent->appendChild($p) if $p->textContent =~ /\S/;
         }
@@ -417,314 +436,6 @@ sub _fix_img {
         $img->setAttribute("alt", $img->getAttribute("src"));
     }
 }
-
-1;
-
-__END__
-
-use Encode;
-use Carp; # By verbosity?
-use Scalar::Util "blessed";
-use HTML::Tagset 3.02 ();
-use HTML::Entities;
-use HTML::TokeParser::Simple;
-use LWP::Simple; # external styles
-use CSS::Tiny;
-
-
-
-sub strip_tags {
-    my $self = shift;
-    my $content = shift;
-    my $xpath = HTML::Selector::XPath::selector_to_xpath(shift);
-    carp "No selector was given to strip_tags" and return $content unless $xpath;
-    my $root = blessed($content) =~ /\AXML::LibXML::/ ?
-        $content : $self->_fragment_to_body_node($content);
-
-    my $doc = $root->getOwnerDocument;
-    for my $node ( $root->findnodes($xpath) )
-    {
-        my $fragment = $doc->createDocumentFragment;
-        for my $n ( $node->childNodes )
-        {
-            $fragment->appendChild($n);
-        }
-        $node->replaceNode($fragment);
-    }
-    my $out = "";
-    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
-    _trim($out);
-}
-
-sub _trim {
-    s/\A\s+|\s+\z//g for @_;
-    wantarray ? @_ : $_[0];
-}
-
-sub remove { # Synonymous for remove_nodes, all gone.
-    my $self = shift;
-    # my $content = shift;
-    my $content = $self->_sanitize(shift) or return;
-    my $xpath = HTML::Selector::XPath::selector_to_xpath(shift);
-    carp "No selector was given to strip_tags" and return $content unless $xpath;
-    my $root = blessed($content) =~ /\AXML::LibXML::/ ?
-        $content : $self->_fragment_to_body_node($content);
-
-    $_->parentNode->removeChild($_) for $root->findnodes($xpath);
-    my $out = "";
-    $out .= $_->serialize(1,"UTF-8") for $root->childNodes;
-    _trim($out);
-}
-
-# No... ? requires object->call shuffling to work : sub enpara_tag { +shift->{enpara_tag} = shift || "p"; }
-
-
-
-
-sub _enpara_this_nodes_content {
-    my ( $parent, $doc ) = @_;
-    my $lastChild = $parent->lastChild;
-    my @naked_block;
-    for my $node ( $parent->childNodes )
-    {
-        if ( $isBlockLevel->{$node->nodeName}
-             or
-             $node->nodeName eq "a" # special case block level, so IGNORE
-             and
-             grep { $_->nodeName eq "img" } $node->childNodes
-             )
-        {
-            next unless @naked_block; # nothing to enblock
-            my $p = $doc->createElement("p");
-            $p->setAttribute("enpara","enpara"); # Placeholder.
-            $p->appendChild($_) for @naked_block;
-            $parent->insertBefore( $p, $node )
-                if $p->textContent =~ /\S/;
-            @naked_block = ();
-        }
-        elsif ( $node->nodeType == 3
-                and
-                $node->nodeValue =~ /(?:[^\S\n]*\n){2,}/
-                )
-        {
-            my $text = $node->nodeValue;
-            my @text_part = map { $doc->createTextNode($_) }
-                split /([^\S\n]*\n){2,}/, $text;
-
-            my @new_node;
-            for ( my $x = 0; $x < @text_part; $x++ )
-            {
-                if ( $text_part[$x]->nodeValue =~ /\S/ )
-                {
-                    push @naked_block, $text_part[$x];
-                }
-                else # it's a blank newline node so _STOP_
-                {
-                    next unless @naked_block;
-                    my $p = $doc->createElement("p");
-                    $p->setAttribute("enpara","enpara");
-                    $p->appendChild($_) for @naked_block;
-                    @naked_block = ();
-                    push @new_node, $p;
-                }
-            }
-            if ( @new_node )
-            {
-                $parent->insertAfter($new_node[0], $node);
-                for ( my $x = 1; $x < @new_node; $x++ )
-                {
-                    $parent->insertAfter($new_node[$x], $new_node[$x-1]);
-                }
-            }
-            $node->unbindNode;
-        }
-        else
-        {
-            push @naked_block, $node; # if $node->nodeValue =~ /\S/;
-        }
-
-        if ( $node->isSameNode( $lastChild )
-             and @naked_block )
-        {
-            my $p = $doc->createElement("p");
-            $p->setAttribute("enpara","enpara");
-            $p->appendChild($_) for ( @naked_block );
-            $parent->appendChild($p) if $p->textContent =~ /\S/;
-        }
-    }
-
-    my $newline = $doc->createTextNode("\n");
-    my $br = $doc->createElement("br");
-
-    for my $p ( $parent->findnodes('//p[@enpara="enpara"]') )
-    {
-        $p->removeAttribute("enpara");
-        $parent->insertBefore( $newline->cloneNode, $p );
-        $parent->insertAfter( $newline->cloneNode, $p );
-
-        my $frag = $doc->createDocumentFragment();
-
-        my @kids = $p->childNodes();
-        for ( my $i = 0; $i < @kids; $i++ )
-        {
-            my $kid = $kids[$i];
-            next unless $kid->nodeName eq "#text";
-            my $text = $kid->nodeValue;
-            $text =~ s/\A\r?\n// if $i == 0;
-            $text =~ s/\r?\n\z// if $i == $#kids;
-
-            my @lines = map { $doc->createTextNode($_) }
-                split /(\r?\n)/, $text;
-
-            for ( my $i = 0; $i < @lines; $i++ )
-            {
-                $frag->appendChild($lines[$i]);
-                unless ( $i == $#lines
-                         or
-                         $lines[$i]->nodeValue =~ /\A\r?\n\z/ )
-                {
-                    $frag->appendChild($br->cloneNode);
-                }
-            }
-            $kid->replaceNode($frag);
-        }
-    }
-}
-
-sub traverse { # traverse("/*") -> callback
-    my ( $self, $selector, $callback ) = @_;
-    croak "not implemented";
-}
-
-sub translate_tags {
-    croak "not implemented";
-}
-
-sub remove_style { # (* or [list])
-    # just calls remove with args
-    croak "not implemented";
-}
-
-sub inline_stylesheets { # (names/paths) / external sheets allowed.
-    croak "not implemented";
-    my $self = shift;
-    my $thing = shift;
-# :before and :after stuff is still missing
-# ?? <style type="text/css" title="currentStyle" media="screen">
-# ?? needs to read "@import" and link rel="stylesheet" src=".."
-    
-    my $doc = $self->xml_parser->parse_html_string( $thing ) unless ref($thing); 
-    $doc ||= $self->xml_parser->parse_html_file( $thing ) if -e $thing;
-    $doc ||= $self->xml_parser->parse_html_string( join("",$thing->getlines) )
-        if blessed($thing) && $thing->can("getlines");
-
-    my $root = $doc->documentElement();
-
-    my $collected = "";
-    for my $sheet ( $root->findnodes("//style") )
-    {
-#    print $sheet->textContent, $/;
-        $collected .= $sheet->textContent;
-    }
-
-    my $css = CSS::Tiny->read_string($collected);
-
-    my %xpath_to_style;
-    for my $rule ( reverse sort keys %{$css} ) {
-        my $selector = HTML::Selector::XPath->new($rule);
-        $xpath_to_style{$selector->to_xpath} = $css->{$rule};
-        # Uncomment if you want to see the CSS-->xpath strings
-        # printf("%s\n%s\n%s\n\n",
-        # $rule,
-        # $selector->to_xpath,
-        # format_css($css->{$rule})
-        # );
-    }
-
-    for my $xpath ( keys %xpath_to_style ) {
-        my $style = $xpath_to_style{$xpath};
-        for my $node ( $root->findnodes( $xpath ) ) {
-            if ( my $inline_css = $node->getAttributeNode("style") ) {
-                my $fake_sheet = $node->nodeName .
-                    "{" . $inline_css->getValue . "}";
-                my $css = CSS::Tiny->read_string($fake_sheet);
-                next unless $css;
-                %{$style} = (
-                             %{$style},
-                             %{$css->{$node->nodeName}}
-                             );
-            }
-            $node->setAttribute("style", format_css($style));
-            $node->removeAttribute("class");
-        }
-    }
-    return $doc->serialize(1,"UTF-8");
-}
-
-sub _format_css {
-    my $css = shift || return '';
-    my @pairs;
-    for my $attr ( keys %{$css} )
-    {
-        push @pairs, "$attr:$css->{$attr}";
-    }
-    join "; ", @pairs;
-}
-
-sub html_to_xhtml { # Handles docs or fragments.
-    croak "not implemented";
-}
-
-sub _fragment_to_body_node {
-    my $self = shift;
-    my $html = \$_[0];
-
-    my $parser = $self->xml_parser();
-    $parser->recover(1);
-    $parser->recover_silently(1);
-    my ( $body ) = $parser->parse_html_string("<body>".${$html}."</body>")->findnodes("//body");
-    return $body;
-}
-
-
-sub _fragment_to_xhtml {
-    my $self = shift;
-    return unless @_;
-    my $html = \$_[0];
-    my $doc = $self->_fragment_to_doc($html);
-    my ( $body ) = $doc->findnodes("//body");
-    my ( $head ) = $doc->findnodes("//head");
-    my $out = "";
-    my $target = $body || $head;
-    $target or return $out;
-    for my $kid ( $target->childNodes ) {
-        $kid->removeChild($_) for
-            grep { $_->nodeType == 3 and $_->data !~ /\w/ } $kid->childNodes;
-        $out .= $kid->serialize(1,"UTF-8");
-    }
-    return $out if defined wantarray;
-    ${$html} = $out;
-}
-
-sub validate { # Against DTDs!
-    croak "not implemented";
-}
-
-sub xml_parser {
-    my $self = shift;
-    $self->{xml_parser} = shift if @_;
-    $self->{xml_parser} ||= XML::LibXML->new();
-}
-
-sub selector_to_xpath {
-    HTML::Selector::XPath::selector_to_xpath($_[1]);
-}
-
-#sub html_parser {
-#    my $self = shift;
-#    $self->{html_parser} = shift if @_;
-#    $self->{html_parser} ||= HTML::TokeParser->new();
-#}
 
 1;
 
@@ -1010,3 +721,11 @@ HTML TO XHTML will have to strip depracated shite like center and font.
 12212g
 
 VALID_ONLY FLAG?
+
+DEBUG:
+
+   5 EVERYTHING
+   4
+   3
+   2
+   1 
