@@ -4,10 +4,8 @@ use Test::More "no_plan";
 use Test::Exception;
 use FindBin;
 use File::Spec;
-use Path::Class;
 use lib File::Spec->catfile($FindBin::Bin, '../lib');
 use XHTML::Util;
-use Encode;
 use utf8;
 
 # What happens with an empty string document?

@@ -287,26 +287,25 @@ sub enpara {
 
     my $doc = $self->doc;
     my $root = $doc->getDocumentElement;
-    warn "Selector: $selector" if $self->debug;
-    if ( my $xpath = HTML::Selector::XPath::selector_to_xpath($selector) )
-    {
-      NODE:
-        for my $designated_enpara ( $root->findnodes("$xpath") )
-        {
-            # warn "FOUND ", $designated_enpara->nodeName, $/;
-            # warn "*********", $designated_enpara->toString if $self->debug > 2;
-            next unless $designated_enpara->nodeType == 1;
-            next NODE if $designated_enpara->nodeName eq 'p';
-            if ( $designated_enpara->nodeName eq 'pre' )  # I don't think so, honky.
-            {
-                # Expand or leave it alone? or ->validate it...?
-                carp "It makes no sense to enpara within a <pre/>; skipping";
-                next NODE;
-            }
-            next unless $isBlockLevel->{$designated_enpara->nodeName};
+    warn "Selector: $selector" if $self->debug > 2;
+    my $xpath = HTML::Selector::XPath::selector_to_xpath($selector);
 
-            $self->_enpara_this_nodes_content($designated_enpara, $doc);
+  NODE:
+    for my $designated_enpara ( $root->findnodes("$xpath") )
+    {
+        # warn "FOUND ", $designated_enpara->nodeName, $/;
+        # warn "*********", $designated_enpara->toString if $self->debug > 2;
+        next unless $designated_enpara->nodeType == 1;
+        next NODE if $designated_enpara->nodeName eq 'p';
+        if ( $designated_enpara->nodeName eq 'pre' )  # I don't think so, honky.
+        {
+            # Expand or leave it alone? or ->validate it...?
+            carp "It makes no sense to enpara within a <pre/>; skipping";
+            next NODE;
         }
+        next unless $isBlockLevel->{$designated_enpara->nodeName};
+
+        $self->_enpara_this_nodes_content($designated_enpara, $doc);
     }
     $self->_enpara_this_nodes_content($root, $doc);
     $self->_return;
@@ -442,14 +441,30 @@ sub _fix_img {
     }
 }
 
-sub strip_tags {
+sub _make_selector_xpath {
     my $self = shift;
     my $selector = shift;
     my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
-    $selector = "$base $selector";
-
-    my $xpath = HTML::Selector::XPath::selector_to_xpath($selector);
+    my $xpath = HTML::Selector::XPath::selector_to_xpath("$base $selector");
     warn "XPATH: $xpath\n" if $self->debug > 5;
+    return $xpath;
+}
+
+sub remove {
+    my $self = shift;
+    my $xpath = $self->_make_selector_xpath(@_);
+
+    for my $node ( $self->root->findnodes($xpath) )
+    {
+        $node->parentNode->removeChild($node);
+    }
+    $self->_return;
+}
+
+sub strip_tags {
+    my $self = shift;
+    my $xpath = $self->_make_selector_xpath(@_);
+
     for my $node ( $self->root->findnodes($xpath) )
     {
         my $fragment = $self->doc->createDocumentFragment;
@@ -499,31 +514,47 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
  my $xu = XHTML::Util
     ->new(\"This is naked\n\ntext for making into paragraphs.");
  print $xu->enpara, $/;
-
+ 
  # <p>This is naked</p>
  #
  # <p>text for making into paragraphs.</p>
 
- print enpara("blockquote",
-              "<blockquote>Quotes should probably have paras.</blockquote>");
+ my $xu = XHTML::Util
+     ->new(\"<blockquote>Quotes should probably have paras.</blockquote>");
+ print $xu->enpara("blockquote");
+ 
  # <blockquote>
- # <p>Quotes should probably have paras.</p>
+ #   <p>Quotes should probably have paras.</p>
  # </blockquote>
 
- print $xu->strip_tags('<i><a href="#"><b>Something</b></a>.</i>','a');
+ my $xu = XHTML::Util
+     ->new(\'<i><a href="#"><b>Something</b></a>.</i>');
+ 
+ print $xu->strip_tags('a');
  # <i><b>Something</b>.</i>
 
 =head1 DESCRIPTION
 
-This is a set of itches I'm sick of scratching 5 different ways from the Sabbath. Right now it's in alpha-mode so please sample but don't count on the interface or behavior. Some of the code is fire tested in other places but as this is a new home and API, it's subject to change. Like they say, release early, release often. Like I say: Release whatever you've got so you'll be embarrassed into making it better.
-
 You can use CSS expressions to most of the methods. E.g., to only enpara the contents of div tags with a class of "enpara" -- C<< <div class="enpara"/> >> -- you could do this-
 
- print $xu->enpara("div.enpara"); 
+ print $xu->enpara("div.enpara");
 
 To do the contents of all blockquotes and divs-
 
- print $xu->enpara("div, blockquote"); 
+ print $xu->enpara("div, blockquote");
+
+Alterations to the XHTML in the object are persistent.
+
+ my $xu = XHTML::Util
+     ->new(\'<script>alert("OH HAI")</script>');
+ $xu->strip_tags('script');
+
+Will remove the script tagsE<mdash>not the script cotent thoughE<mdash>so the next time you call anything that returns the stringified object the changes will remainE<ndash>
+
+ print $xu->as_string, $/;
+ # alert("OH HAI")
+
+Well... really you'll get C<< <![CDATA[alert(&quot;OH HAI&quot;)]]> >>.
 
 =head1 METHODS
 

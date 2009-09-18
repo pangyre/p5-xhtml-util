@@ -37,4 +37,12 @@ dies_ok( sub { my $xu = XHTML::Util->new },
         "Enpara'ed content of 'before' matches 'after'" );
 }
 
+{
+    my $xu = XHTML::Util->new(\'<script type="text/javascript">alert("OH HAI")</script>');
+    ok( $xu->strip_tags('script'),
+        "Stripping script tags" );
+    is( $xu->as_string, '<![CDATA[alert(&quot;OH HAI&quot;)]]>',
+        "Smooth as mother's butter" );
+}
+
 __END__
