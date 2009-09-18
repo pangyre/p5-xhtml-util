@@ -44,24 +44,3 @@ BEFORE
 }
 
 __END__
-
-    ok( $xu->strip_tags("blockquote p"), "Strip p beneath blockquote" );
-
-    unlike( $xu->as_string, qr/<blockquote>[^<]*<p>/,
-          'No /<blockquote><p>/');
-
-    like( $xu->as_string, qr/<p>/,
-          'Still have a <p>');
-
-    ok( $xu->strip_tags("i,b"), "Try to strip i,b at the top of fragment" );
-    unlike( $xu->as_string, qr/<i>/, 'No <i>');
-    unlike( $xu->as_string, qr/<b>/, 'No <b>');
-
-    like( $xu->as_string, qr/graph two\.\.\./, 'Remaining text looks good');
-
-    ok( $xu->strip_tags("*"), "Try to strip i,b at the top of fragment" );
-
-#<i><b>two</b>...</i>
-
-
-}

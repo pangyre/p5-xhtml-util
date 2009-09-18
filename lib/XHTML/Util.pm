@@ -160,7 +160,6 @@ sub parser {
     $self->{_parser};
 }
 
-# Shortcuts.
 sub is_valid {
     my $self = shift;
     return 1 if $self->doc->is_valid;
@@ -208,7 +207,6 @@ sub _return {
 
 sub fix {
     my $self = shift;
-    # warn $self->doc->serialize(1,'UTF-8');
     return $self->_return if $self->is_valid;
 
     for my $fixable ( qw( img ) )
@@ -446,14 +444,13 @@ sub _make_selector_xpath {
     my $selector = shift;
     my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
     my $xpath = HTML::Selector::XPath::selector_to_xpath("$base $selector");
-    warn "XPATH: $xpath\n" if $self->debug > 5;
+    warn "XPATH: $xpath\n" if $self->debug >= 5;
     return $xpath;
 }
 
 sub remove {
     my $self = shift;
     my $xpath = $self->_make_selector_xpath(@_);
-
     for my $node ( $self->root->findnodes($xpath) )
     {
         $node->parentNode->removeChild($node);
@@ -490,7 +487,9 @@ sub same_same {
 
     my $one = $self->parser->parse_string($self->root->serialize(0))->serialize(0);
     my $two = $self->parser->parse_string($self2->root->serialize(0))->serialize(0);
+
     $self->parser->keep_blanks(1);
+
     $one eq $two or die "$one\n\n$two"
 }
 
@@ -572,9 +571,9 @@ Why you might need this-
 
  <a href="/oh-noes">I <3 <a href="http://icanhascheezburger.com/">kittehs</a></a>
 
-That ain't legal so there's no definition for what browsers should do with it. Some sort of tolerate it, some don't. It's never going to be a good user experience.
+That isn't legal so there's no definition for what browsers should do with it. Some sort of tolerate it, some don't. It's never going to be a good user experience.
 
-What you can do, and I've done successfully for years, is something like this-
+What you can do is something like thisE<ndash>
 
  my $post_title = "I <3 <a href="http://icanhascheezburger.com/">kittehs</a>";
  my $safe_title = $xu->strip_tags($post_title, ["a"]);
@@ -585,9 +584,10 @@ What you can do, and I've done successfully for years, is something like this-
 
 =head2 remove
 
-Takes a content block and a CSS selector string. Completely removes the matched nodes, including their content. This differs from L</strip_tags> which retains the child nodes intact and only removes the tag(s) proper.
+Takes a CSS selector string. Completely removes the matched nodes, including their content. This differs from L</strip_tags> which retains the child nodes intact and only removes the tags proper.
 
- my $cleaned = $xu->remove($html, "center, img[src^='http']");
+ # Remove <center/> tags and external images.
+ my $cleaned = $xu->remove("center, img[src^='http']");
 
 =head2 traverse
 
@@ -601,19 +601,29 @@ Takes a content block and a CSS selector string. Completely removes the matched 
 
 [Not implemented.] Removes styles from matched nodes. To remove all style from a fragment-
 
- $xu->remove_style($content, "*");
+ $xu->remove_style("*");
+
+(Should also remove style sheets, yes?)
 
 =head2 inline_stylesheets
 
 [Not implemented.] Moves all linked stylesheet information into inline style attributes. This is useful, for example, when distributing a document fragment like an RSS/Atom feed and having it match its online appearance.
 
-=head2 html_to_xhtml
+=head2 sanitize
 
 [Not implemented.] Upgrades old or broken HTML to valid XHTML.
 
+=head2 fix
+
+[Partially implemented.] Attempts to make many known problems go away. E.g., entitiy escaping, missing alt attributes of images, etc.
+
 =head2 validate
 
-[Not implemented.] Validates a given document or fragment against its claimed DTD or one provided by name.
+Validates a given document or fragment (which is actually contained in a full document) against a DTD provided by name or, if none is provided, it will validate against F<xhtml1-transitional>. Uses L<XML::LibXML>'s validate under the covers.
+
+=head2 is_valid
+
+A non-fatal version of L</validate>. Returns true on success, false on failure.
 
 =head2 enpara
 
@@ -671,11 +681,11 @@ This wraps L<selector_to_xpath HTML::Selector::Xpath/selector_to_xpath>. Not rea
 
 Finish spec and tests. Get it running solid enough to remove alpha label. Generalize the argument handling. Provide optional setting or methods for returning nodes intead of serialized content. Improve document/head related handling/options.
 
+I can see this being easier to use functionally. I haven't decided on the argspec or method--E<gt>sub approach for that yet. I think it's a good idea.
+
 =head1 BUGS AND LIMITATIONS
 
 All input should be utf8 or at least safe to run L<Encode::decode_utf8> on. Regular Latin character sets, I suspect, will be fine but extended sets will probably give garbage or unpredictable results; guessing.
-
-This module is currently targeted to working with body B<fragments>. You will get fragments back, not documents. I want to expand it to handle both and deal with doc, DTD, head and such but that's not its primary use case so it won't come first.
 
 I have used many of these methods and snippets in many projects and I'm tired of recycling them. Some are extremely useful and, at least in the case of L</enpara>, better than any other implementation I've been able to find in any language.
 
@@ -732,26 +742,11 @@ typedef enum {
 } xmlElementType;
 
 
-RECIPE HOW TO APPLY .ENPARA
-
 use HTML::Entities;
 our %Charmap = %HTML::Entities::entity2char;
 delete @Charmap{qw( amp lt gt quot apos )};
 
-#  LocalWords:  xpath
 
-<<<<<<< .mine
-use Test::More tests => 1;
-
-XML::LibXML based only at first because it's easier.
-
-actual markup
-remove_markup("leaving content")
-
-entire Nodes
-remove_tags("
-
-enpara
 
 translate_tags
 
@@ -763,7 +758,6 @@ strip_attributes()
 inline_stylesheets(names/paths)
 
 fragment_to_xhtml
-
 
 We WILL NOT be covering other well known and well done implementations like HTML::Entities or URI::Escape
 
@@ -801,4 +795,4 @@ DEBUG:
    4
    3
    2
-   1 
+   1
