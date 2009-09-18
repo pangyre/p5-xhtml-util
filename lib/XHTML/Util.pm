@@ -467,13 +467,16 @@ sub strip_tags {
 
 sub same_same {
     my $self = shift;
-    my $comparitor = shift;
+    my $other = shift;
+    my $self2 = blessed($other) eq __PACKAGE__ ?
+        $other : __PACKAGE__->new($other);
+
     $self->parser->keep_blanks(0);
-    my $one = $self->as_string(0);
-    my $two = blessed($comparitor) eq __PACKAGE__ ?
-        $comparitor->as_string(0) : __PACKAGE__->new($comparitor)->as_string;
+
+    my $one = $self->parser->parse_string($self->root->serialize(0))->serialize(0);
+    my $two = $self->parser->parse_string($self2->root->serialize(0))->serialize(0);
     $self->parser->keep_blanks(1);
-    $one eq $two;
+    $one eq $two or die "$one\n\n$two"
 }
 
 1;
