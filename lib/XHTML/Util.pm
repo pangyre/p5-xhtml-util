@@ -82,10 +82,17 @@ sub as_string {
     }
     elsif ( $self->is_fragment )
     {
+        croak "No root in document\n", $self->doc->serialize
+            unless $self->root;
+
+        my ( $node ) = $self->root->findnodes($FRAGMENT_XPATH);
+
+        croak "No fragment...?\n", $self->doc->serialize
+            unless $node;
+
         my $out = "";
-        use YAML; die YAML::Dump($self->doc->serialize) unless $self->root;
-        $out .= $_->serialize(@args)
-            for [ $self->root->findnodes($FRAGMENT_XPATH) ]->[0]->childNodes;
+        $out .= $_->serialize(@args) for $node->childNodes;
+
         return _trim( Encode::decode_utf8($out) );
     }
     else
@@ -442,7 +449,7 @@ sub strip_tags {
     $selector = "$base $selector";
 
     my $xpath = HTML::Selector::XPath::selector_to_xpath($selector);
-    warn "****", $xpath, $/;
+    warn "XPATH: $xpath\n" if $self->debug > 5;
     for my $node ( $self->root->findnodes($xpath) )
     {
         my $fragment = $self->doc->createDocumentFragment;
