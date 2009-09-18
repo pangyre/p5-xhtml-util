@@ -85,13 +85,13 @@ sub as_string {
         croak "No root in document\n", $self->doc->serialize
             unless $self->root;
 
-        my ( $node ) = $self->root->findnodes($FRAGMENT_XPATH);
+        my ( $fragment ) = $self->root->findnodes($FRAGMENT_XPATH);
 
         croak "No fragment...?\n", $self->doc->serialize
-            unless $node;
+            unless $fragment;
 
         my $out = "";
-        $out .= $_->serialize(@args) for $node->childNodes;
+        $out .= $_->serialize(@args) for $fragment->childNodes;
 
         return _trim( Encode::decode_utf8($out) );
     }
@@ -465,6 +465,17 @@ sub strip_tags {
 #    _trim($out);
 }
 
+sub same_same {
+    my $self = shift;
+    my $comparitor = shift;
+    $self->parser->keep_blanks(0);
+    my $one = $self->as_string(0);
+    my $two = blessed($comparitor) eq __PACKAGE__ ?
+        $comparitor->as_string(0) : __PACKAGE__->new($comparitor)->as_string;
+    $self->parser->keep_blanks(1);
+    $one eq $two;
+}
+
 1;
 
 __END__
@@ -505,11 +516,11 @@ This is a set of itches I'm sick of scratching 5 different ways from the Sabbath
 
 You can use CSS expressions to most of the methods. E.g., to only enpara the contents of div tags with a class of "enpara" -- C<< <div class="enpara"/> >> -- you could do this-
 
- print $xu->enpara($content, "div.enpara"); 
+ print $xu->enpara("div.enpara"); 
 
 To do the contents of all blockquotes and divs-
 
- print $xu->enpara($content, "div, blockquote"); 
+ print $xu->enpara("div, blockquote"); 
 
 =head1 METHODS
 
