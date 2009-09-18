@@ -20,9 +20,9 @@ use utf8;
 BEFORE
 
     my $after = <<"AFTER";
-<p>¶aragraph øne¡</p>
-             <p>¶aragraph †wo…</p>
-
+ <p>¶aragraph øne¡</p>   
+             <p>¶aragraph †wo…</p> 
+   
 AFTER
 
     ok( my $xu = XHTML::Util->new(\$before),
