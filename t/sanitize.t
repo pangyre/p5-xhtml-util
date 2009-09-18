@@ -18,10 +18,16 @@ while ( <DATA> )
     my $xu = XHTML::Util->new(\$input);
 
     is( _trim($xu->as_string), _trim($expected),
-        length($expected) > 30 ?
-        substr($expected, 0, 27) . "..." : $expected
+        _substr($expected)
       );
-    #diag(YAML::Dump($xu));
+    # diag( YAML::Dump($xu) );
+}
+
+sub _substr {
+    my ( $copy ) = @_;
+    $copy =~ s/[^\S ]+//g; # Flatten for nicer verbosity display.
+    length($copy) > 60 ?
+        substr($copy, 0, 57) . "..." : $copy;
 }
 
 sub _trim {
@@ -29,6 +35,12 @@ sub _trim {
     s/(\A\s+|\s+\z)//g for @copy;
     wantarray ? @copy : $copy[0];
 }
+
+=head1 NOTES
+
+Should URI escape fix-up only happen in ->fix?
+
+=cut
 
 __DATA__
 
@@ -51,18 +63,24 @@ OH<br/>HAI!
 
 ::TEST::DATA::
 
-<Q&A>
+Naked entities: <Q&A>
 ::
-&lt;Q&amp;A&gt;
+Naked entities: &lt;Q&amp;A&gt;
 
 ::TEST::DATA::
 
-<img src=no-quote.gif alt=* width=10%>
+<b>Already encoded: &lt;Q&amp;A&gt;</b>
 ::
-<img src="no-quote.gif" alt="*" width="10%"/>
+<b>Already encoded: &lt;Q&amp;A&gt;</b>
 
 ::TEST::DATA::
 
-OH HAI!
+<img src=no-quote.gif alt='<p class="asterix">*</p>' width=10%>
 ::
-OH HAI!
+<img src="no-quote.gif" alt="&lt;p class=&quot;asterix&quot;&gt;*&lt;/p&gt;" width="10%"/>
+
+::TEST::DATA::
+
+<a href="/moo?cow=cow&flag=burned&site=1">åß∂ƒ</a>
+::
+<a href="/moo?cow=cow&amp;flag=burned&amp;site=1">åß∂ƒ</a>

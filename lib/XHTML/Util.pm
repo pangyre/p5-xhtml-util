@@ -83,6 +83,7 @@ sub as_string {
     elsif ( $self->is_fragment )
     {
         my $out = "";
+        use YAML; die YAML::Dump($self->doc->serialize) unless $self->root;
         $out .= $_->serialize(@args)
             for [ $self->root->findnodes($FRAGMENT_XPATH) ]->[0]->childNodes;
         return _trim( Encode::decode_utf8($out) );
@@ -274,17 +275,14 @@ sub as_fragment {
 sub enpara {
     my $self = shift;
     my $selector = shift;
-#    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
-    my $base = "body";
+    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
     $selector ||= "$base, $base *";
-
 
     my $doc = $self->doc;
     my $root = $doc->getDocumentElement;
     warn "Selector: $selector" if $self->debug;
     if ( my $xpath = HTML::Selector::XPath::selector_to_xpath($selector) )
     {
-
       NODE:
         for my $designated_enpara ( $root->findnodes("$xpath") )
         {
@@ -435,6 +433,29 @@ sub _fix_img {
     {
         $img->setAttribute("alt", $img->getAttribute("src"));
     }
+}
+
+sub strip_tags {
+    my $self = shift;
+    my $selector = shift;
+    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
+    $selector = "$base $selector";
+
+    my $xpath = HTML::Selector::XPath::selector_to_xpath($selector);
+    warn "****", $xpath, $/;
+    for my $node ( $self->root->findnodes($xpath) )
+    {
+        my $fragment = $self->doc->createDocumentFragment;
+        for my $n ( $node->childNodes )
+        {
+            $fragment->appendChild($n);
+        }
+        $node->replaceNode($fragment);
+    }
+    $self->_return;
+#    my $out = "";
+#    $out .= $_->serialize(1,"UTF-8") for $self->root->childNodes;
+#    _trim($out);
 }
 
 1;
