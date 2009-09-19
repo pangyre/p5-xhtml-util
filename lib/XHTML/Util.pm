@@ -161,6 +161,7 @@ sub parser {
 sub is_valid {
     my $self = shift;
     return 1 if $self->doc->is_valid;
+    # 321 debug about which DTD is being used.
     my $dtd_name = shift || "xhtml1-transitional";
     my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
     $self->{_dtd} = XML::LibXML::Dtd->parse_string($dtd_string);
@@ -441,6 +442,12 @@ sub _fix_img {
     {
         $img->setAttribute("alt", $img->getAttribute("src"));
     }
+}
+
+sub _fix_center {
+    my ( $self, $center ) = @_;
+    # <center> --> <div style="text-align:center">
+    die "Unimplemented";
 }
 
 sub _make_selector_xpath {
