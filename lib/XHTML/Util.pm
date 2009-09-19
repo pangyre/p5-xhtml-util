@@ -76,7 +76,7 @@ sub as_string {
     my @args = @_ ? @_ : ( 1, "UTF-8" );
     if ( $self->is_document )
     {
-        return _trim( Encode::decode_utf8( $self->doc->as_string(@args) ) );
+        return _trim( Encode::decode_utf8( $self->doc->serialize(@args) ) );
     }
     elsif ( $self->is_fragment )
     {

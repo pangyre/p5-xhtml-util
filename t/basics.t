@@ -40,7 +40,7 @@ dies_ok( sub { my $xu = XHTML::Util->new },
 {
     ok( my $xu = XHTML::Util->new("$FindBin::Bin/files/basic.html"),
         "XHTML::Util->new(basic.html)" );
-    diag($xu->as_string());
+    # diag($xu->as_string());
 
 }
 
