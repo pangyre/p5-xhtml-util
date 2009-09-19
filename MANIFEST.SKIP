@@ -1,6 +1,7 @@
 MANIFEST.SKIP
 NOTES
 \.svn
+\.git
 \bCVS\b
 \.cvs
 ~

@@ -666,9 +666,17 @@ With C<< XHTML::Util->enpara >> you will get-
  </pre>
  <p>I meant to do that.</p>
 
-=head2 xml_parser
+=head2 parser
 
-Don't use unless you read the code and see why/how.
+The L<XML::LibXML> parser object used to parse (X)HTML.
+
+=head2 doc
+
+The L<XML::LibXML::Document> object created from input.
+
+=head2 root
+
+The documentElement of the L<XML::LibXML::Document> object.
 
 =head2 selector_to_xpath
 
@@ -685,7 +693,9 @@ I can see this being easier to use functionally. I haven't decided on the argspe
 
 =head1 BUGS AND LIMITATIONS
 
-All input should be utf8 or at least safe to run L<Encode::decode_utf8> on. Regular Latin character sets, I suspect, will be fine but extended sets will probably give garbage or unpredictable results; guessing.
+All input should be UTF-8 or at least safe to run L<Encode::decode_utf8> on. Regular Latin character sets, I suspect, will be fine but extended sets will probably give garbage or unpredictable results; guessing.
+
+This will wreck XML and probably XHTML with a custom DTD too. It uses L<HTML::Tagset>'s conception of what valid tags are. This is not optimal but it is easier than DTD handlig. It might improve to more automatic detection in the future.
 
 I have used many of these methods and snippets in many projects and I'm tired of recycling them. Some are extremely useful and, at least in the case of L</enpara>, better than any other implementation I've been able to find in any language.
 
