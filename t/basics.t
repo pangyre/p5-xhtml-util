@@ -38,6 +38,13 @@ dies_ok( sub { my $xu = XHTML::Util->new },
 }
 
 {
+    ok( my $xu = XHTML::Util->new("$FindBin::Bin/files/basic.html"),
+        "XHTML::Util->new(basic.html)" );
+    diag($xu->as_string());
+
+}
+
+{
     my $xu = XHTML::Util->new(\'<script type="text/javascript">alert("OH HAI")</script>');
     ok( $xu->strip_tags('script'),
         "Stripping script tags" );

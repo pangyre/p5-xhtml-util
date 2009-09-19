@@ -76,8 +76,6 @@ sub as_string {
     my @args = @_ ? @_ : ( 1, "UTF-8" );
     if ( $self->is_document )
     {
-        die;
-        # ? HTML String ?
         return _trim( Encode::decode_utf8( $self->doc->as_string(@args) ) );
     }
     elsif ( $self->is_fragment )
@@ -230,9 +228,11 @@ sub _sanitize {
     #$fragment = Encode::decode_utf8($fragment);
     my $p = HTML::TokeParser::Simple->new(\$fragment);
     my $renew = "";
+    my $in_body = 0;
+  TOKEN:
     while ( my $token = $p->get_token )
     {
-        # warn sprintf("%10s %10s %s\n",  $token->[-1], $token->get_tag, blessed($token));
+        #warn sprintf("%10s %10s %s\n",  $token->[-1], $token->get_tag, blessed($token));
         if ( $isKnown->{$token->get_tag} )
         {
             if ( $token->is_start_tag )
@@ -254,9 +254,13 @@ sub _sanitize {
                 $renew .= $token->as_is;
             }
         }
+        elsif ( $token->is_declaration or $token->is_pi )
+        {
+            $renew .= $token->as_is;
+        }
         else
         {
-            $renew .= encode_entities(decode_entities($token->as_is));
+            $renew .= encode_entities(decode_entities($token->as_is),'<>"&');
         }
     }
     return $renew;
@@ -472,9 +476,6 @@ sub strip_tags {
         $node->replaceNode($fragment);
     }
     $self->_return;
-#    my $out = "";
-#    $out .= $_->serialize(1,"UTF-8") for $self->root->childNodes;
-#    _trim($out);
 }
 
 sub same_same {
@@ -493,6 +494,12 @@ sub same_same {
     $one eq $two or die "$one\n\n$two"
 }
 
+sub traverse {
+    my $self = shift;
+    my $other = shift;
+
+    $self->_return;
+}
 1;
 
 __END__
@@ -806,3 +813,5 @@ DEBUG:
    3
    2
    1
+
+SANITIZE IS BREAKING THE XML DTD HEADERS AND CDATA
