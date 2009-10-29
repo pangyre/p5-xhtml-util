@@ -13,6 +13,8 @@ use Encode;
 use Scalar::Util qw( blessed );
 use HTML::TokeParser::Simple;
 
+use overload q{""} => sub { +shift->as_string }, fallback => 1;
+
 our $VERSION = "0.99_01";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
@@ -20,7 +22,7 @@ our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 our $FRAGMENT_SELECTOR = "div[title='$TITLE_ATTR']";
 our $FRAGMENT_XPATH = HTML::Selector::XPath::selector_to_xpath($FRAGMENT_SELECTOR);
 
-my $isKnown = \%HTML::Tagset::isKnown;
+my $isKnown = { %HTML::Tagset::isKnown }; # We modify this one.
 my $emptyElement = \%HTML::Tagset::emptyElement;
 my $isBodyElement = \%HTML::Tagset::isBodyElement;
 my $isPhraseMarkup = \%HTML::Tagset::isPhraseMarkup;
@@ -39,6 +41,10 @@ my $isBlockLevel = { map {; $_ => 1 }
                      keys %{$isBodyElement}
                  };
 # use YAML; die YAML::Dump($isBlockLevel);
+
+sub tags {
+    sort keys %HTML::Tagset::isKnown;
+}
 
 sub new {
     my $class = shift;
@@ -91,7 +97,7 @@ sub as_string {
         my $out = "";
         $out .= $_->serialize(@args) for $fragment->childNodes;
 
-        return _trim( Encode::decode_utf8($out) );
+        return Encode::decode_utf8( _trim($out) );
     }
     else
     {
@@ -822,3 +828,7 @@ DEBUG:
    1
 
 SANITIZE IS BREAKING THE XML DTD HEADERS AND CDATA
+
+Mention HTML::Restrict
+
+    Test::Harness

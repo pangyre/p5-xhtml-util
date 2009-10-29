@@ -37,7 +37,6 @@ use autodie;
     ok( my $enparaed = $xu->enpara,
         "Enpara'ing the content" );
 
-    # THERE IS A <p>around the head here...
     my $save_after = Path::Class::File->new("/Users/apv/enpara-complex-after.txt");
     my $fh = $save_after->openw;
     print $fh $xu->doc->serialize;

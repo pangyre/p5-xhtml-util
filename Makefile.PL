@@ -15,6 +15,7 @@ requires "HTML::Entities" => undef;
 requires "CSS::Tiny" => undef;
 requires "HTML::Selector::XPath" => undef;
 requires "HTML::TokeParser::Simple" => undef;
+requires "XHTML::Util" => undef;
 
 build_requires "Test::More" => 0.5;
 build_requires "File::Spec" => 3;
