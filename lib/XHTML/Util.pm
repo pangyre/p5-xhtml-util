@@ -539,7 +539,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
  #
  # <p>text for making into paragraphs.</p>
 
- my $xu = XHTML::Util
+ $xu = XHTML::Util
      ->new(\"<blockquote>Quotes should probably have paras.</blockquote>");
  print $xu->enpara("blockquote");
  
@@ -547,7 +547,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
  #   <p>Quotes should probably have paras.</p>
  # </blockquote>
 
- my $xu = XHTML::Util
+ $xu = XHTML::Util
      ->new(\'<i><a href="#"><b>Something</b></a>.</i>');
  
  print $xu->strip_tags('a');
