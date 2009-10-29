@@ -171,7 +171,7 @@ sub is_valid {
     my $dtd_name = shift || "xhtml1-transitional";
     my $dtd_string = HTML::DTD->get_dtd("$dtd_name.dtd");
     $self->{_dtd} = XML::LibXML::Dtd->parse_string($dtd_string);
-    return $self->doc->is_valid($self->{_dtd});
+    return $self->doc->is_valid($self->{_dtd}) ? $self : undef;
 }
 
 sub validate {
@@ -191,6 +191,7 @@ sub _return {
     my $self = shift; # 321 ARGS for serialize.
     my $callers_wantarray = [ caller(1) ]->[5];
     return unless defined $callers_wantarray; # Void context.
+    return $self;    # Should always return self?
 
     if ( $self->is_document )
     {
@@ -706,6 +707,8 @@ This wraps L<selector_to_xpath HTML::Selector::Xpath/selector_to_xpath>. Not rea
  # //form[@name='register']//input[@type='password']
 
 =head1 TO DO
+
+I think the default doc should be \"". There is no reason to jump through that hoop if wanting to build up something from scratch.
 
 Finish spec and tests. Get it running solid enough to remove alpha label. Generalize the argument handling. Provide optional setting or methods for returning nodes intead of serialized content. Improve document/head related handling/options.
 

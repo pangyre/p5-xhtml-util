@@ -8,13 +8,16 @@ use lib File::Spec->catfile($FindBin::Bin, '../lib');
 use XHTML::Util;
 
 {
-    ok( my $xu = XHTML::Util->new(\""),
+    ok( my $xu = XHTML::Util->new(\"."),
         "Empty object" );
 
-    diag( join(" ", $xu->tags ));
-die scalar($xu->tags);
-    ok( scalar(1,$xu->tags),
+    diag( join(" ", $xu->tags )) if $ENV{TEST_VERBOSE};
+
+    ok( my @tags = $xu->tags,
         "List of tags" );
+
+    is( @tags, 108,
+        "108 tags" );
 }
 
 __END__
