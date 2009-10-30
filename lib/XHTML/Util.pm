@@ -43,7 +43,8 @@ my $isBlockLevel = { map {; $_ => 1 }
 # use YAML; die YAML::Dump($isBlockLevel);
 
 sub tags {
-    sort keys %HTML::Tagset::isKnown;
+    grep { ! /\W/ }
+        sort keys %HTML::Tagset::isKnown;
 }
 
 sub new {
@@ -227,7 +228,7 @@ sub fix {
     $self->is_valid()
         or carp "Could not fix the problems with this document";
     $self->validate();
-    return $self->_return;
+    $self->_return;
 }
 
 sub _sanitize {
@@ -289,16 +290,25 @@ sub as_fragment {
     return $out;
 }
 
-sub enpara {
+sub _make_selector {
     my $self = shift;
     my $selector = shift;
-    my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
-    $selector ||= "$base, $base *";
-
-    my $doc = $self->doc;
-    my $root = $doc->getDocumentElement;
+    unless ( $selector )
+    {
+        my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
+        $selector = "$base, $base *";
+    }
     warn "Selector: $selector" if $self->debug > 2;
-    my $xpath = HTML::Selector::XPath::selector_to_xpath($selector);
+    $selector =~ m,\A/, ?
+        $selector :
+        HTML::Selector::XPath::selector_to_xpath($selector);
+}
+
+sub enpara {
+    my $self = shift;
+    my $xpath = $self->_make_selector(+shift);
+    my $root = $self->root;
+    my $doc = $self->doc;
 
   NODE:
     for my $designated_enpara ( $root->findnodes("$xpath") )
