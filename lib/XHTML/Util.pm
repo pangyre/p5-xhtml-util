@@ -76,7 +76,7 @@ sub new {
 sub debug {
     my $self = shift;
     $self->{_debug} = shift if @_;
-    $self->{_debug};
+    $self->{_debug} || 0;
 }
 
 sub as_string {
@@ -244,6 +244,7 @@ sub _sanitize {
     while ( my $token = $p->get_token )
     {
         #warn sprintf("%10s %10s %s\n",  $token->[-1], $token->get_tag, blessed($token));
+        #no warnings "uninitialized";
         if ( $isKnown->{$token->get_tag} )
         {
             if ( $token->is_start_tag )

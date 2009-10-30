@@ -4,6 +4,7 @@ use inc::Module::Install;
 name "XHTML-Util";
 license 'perl';
 all_from "lib/XHTML/Util.pm";
+repository "git://github.com/pangyre/p5-xhtml-util";
 
 requires "Encode" => 2;
 requires "HTML::Tagset" => 3.02;
