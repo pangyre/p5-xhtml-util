@@ -16,7 +16,7 @@ use XML::Normalize::LibXML qw( xml_normalize );
 
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_01";
+our $VERSION = "0.99_02";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -549,7 +549,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_01
+0.99_02
 
 =head1 SYNOPSIS
 
@@ -580,7 +580,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head1 DESCRIPTION
 
-You can use CSS expressions to most of the methods. E.g., to only enpara the contents of div tags with a class of "enpara" -- C<< <div class="enpara"/> >> -- you could do this-
+You can use CSS expressions to most of the methods. E.g., to only enpara the contents of div tags with a class of "enpara" -- C<< E<lt>div class="enpara"/E<gt> >> -- you could do this-
 
  print $xu->enpara("div.enpara");
 
@@ -599,7 +599,7 @@ Will remove the script tagsE<mdash>not the script cotent thoughE<mdash>so the ne
  print $xu->as_string, $/;
  # alert("OH HAI")
 
-Well... really you'll get C<< <![CDATA[alert(&quot;OH HAI&quot;)]]> >>.
+Well... really you'll get C<< E<lt>![CDATA[alert(&quot;OH HAI&quot;)]]E<gt> >>.
 
 =head1 METHODS
 
@@ -692,7 +692,7 @@ To add paragraph markup to naked text. There are many, many implementations of t
  not be touched!
  </pre>I meant to do that.
 
-With C<< XHTML::Util->enpara >> you will get-
+With C<< XHTML::Util-E<gt>enpara >> you will get-
 
  <p>Is this a paragraph<br/>
  or two?</p>
@@ -757,7 +757,7 @@ L<CSS W3Schools|http://www.w3schools.com/Css/default.asp>, L<Learning CSS at W3C
 
 =head1 AUTHOR
 
-Ashley Pond V, C<< <ashley at cpan.org> >>.
+Ashley Pond V, ashley at cpan.org.
 
 =head1 COPYRIGHT & LICENSE
 
