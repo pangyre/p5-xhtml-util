@@ -12,6 +12,7 @@ use Path::Class;
 use Encode;
 use Scalar::Util qw( blessed );
 use HTML::TokeParser::Simple;
+use XML::Normalize::LibXML qw( xml_normalize );
 
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
@@ -190,6 +191,7 @@ sub _original_string {
 
 sub _return {
     my $self = shift; # 321 ARGS for serialize.
+    xml_normalize( $self->doc );
     my $callers_wantarray = [ caller(1) ]->[5];
     return unless defined $callers_wantarray; # Void context.
     return $self;    # Should always return self?
@@ -303,6 +305,18 @@ sub _make_selector {
         $selector :
         HTML::Selector::XPath::selector_to_xpath($selector);
 }
+
+sub callback {
+    my $self = shift;
+    my $xpath = $self->_make_selector(+shift);
+    my $code = shift;
+    for my $node ( $self->root->findnodes("$xpath") )
+    {
+        $code->($node);
+    }
+    $self->_return;
+}
+
 
 sub enpara {
     my $self = shift;

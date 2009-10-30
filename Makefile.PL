@@ -8,6 +8,7 @@ all_from "lib/XHTML/Util.pm";
 requires "Encode" => 2;
 requires "HTML::Tagset" => 3.02;
 requires "XML::LibXML" => 1.6;
+requires "XML::Normalize::LibXML" => undef;
 requires "Scalar::Util" => undef;
 requires "HTML::Tagset" => 3.02;
 requires "HTML::DTD" => 0.03;
