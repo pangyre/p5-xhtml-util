@@ -16,7 +16,7 @@ use XML::Normalize::LibXML qw( xml_normalize );
 
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_02";
+our $VERSION = "0.99_03";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -124,7 +124,7 @@ sub _parse {
     {
         $self->{_type} = "document";
         $self->{_doc} = $self->parser->parse_html_string($self->{_sanitized});
-        # Special case, doc contains ONLY 1 p and it's first and last
+        # Special case, doc contains ONLY 1 p and its first and last
         # child of body then we should replace it with the FRAGMENT
         # holder div.
     }
@@ -195,24 +195,7 @@ sub _return {
     my $callers_wantarray = [ caller(1) ]->[5];
     return unless defined $callers_wantarray; # Void context.
     return $self;    # Should always return self?
-
-    if ( $self->is_document )
-    {
-        return $self->as_string;
-    }
-    elsif ( $self->is_fragment )
-    {
-        return $self->as_string;
-        return _trim($self->as_fragment);
-    }
-    else
-    {
-        die "Stupid, stupid, developer...";
-    }
 }
-
-# Returns undef if no action is taken.
-# Returns 1 if action is taken and validation is successful.
 
 sub fix {
     my $self = shift;
@@ -287,7 +270,9 @@ sub head {
 }
 
 sub as_fragment {
-    my ( $fragment ) = shift->doc->findnodes($FRAGMENT_XPATH);
+    my $self = shift;
+    my ( $fragment ) = $self->doc->findnodes($FRAGMENT_XPATH);
+    $fragment ||= $self->body;
     my $out = "";
     $out .= $_->serialize(1,"UTF-8") for $fragment->childNodes;
     return $out;
@@ -307,13 +292,21 @@ sub _make_selector {
         HTML::Selector::XPath::selector_to_xpath($selector);
 }
 
-sub callback {
+sub traverse {
     my $self = shift;
-    my $xpath = $self->_make_selector(+shift);
+    my $xpath = $self->_make_selector(+shift) if @_ == 2;
     my $code = shift;
-    for my $node ( $self->root->findnodes("$xpath") )
+
+    if ( $xpath )
     {
-        $code->($node);
+        for my $node ( $self->root->findnodes("$xpath") )
+        {
+            $code->($node);
+        }
+    }
+    else
+    {
+        $code->($self->root);
     }
     $self->_return;
 }
@@ -533,12 +526,6 @@ sub same_same {
     $one eq $two or die "$one\n\n$two"
 }
 
-sub traverse {
-    my $self = shift;
-    my $other = shift;
-
-    $self->_return;
-}
 1;
 
 __END__
@@ -549,7 +536,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_02
+0.99_03
 
 =head1 SYNOPSIS
 
@@ -594,7 +581,7 @@ Alterations to the XHTML in the object are persistent.
      ->new(\'<script>alert("OH HAI")</script>');
  $xu->strip_tags('script');
 
-Will remove the script tagsE<mdash>not the script cotent thoughE<mdash>so the next time you call anything that returns the stringified object the changes will remainE<ndash>
+Will remove the script tagsE<mdash>not the script content thoughE<mdash>so the next time you call anything that returns the stringified object the changes will remainE<ndash>
 
  print $xu->as_string, $/;
  # alert("OH HAI")
@@ -661,7 +648,7 @@ Takes a CSS selector string. Completely removes the matched nodes, including the
 
 =head2 fix
 
-[Partially implemented.] Attempts to make many known problems go away. E.g., entitiy escaping, missing alt attributes of images, etc.
+[Partially implemented.] Attempts to make many known problems go away. E.g., entity escaping, missing alt attributes of images, etc.
 
 =head2 validate
 
@@ -724,6 +711,47 @@ The L<XML::LibXML::Document> object created from input.
 
 The documentElement of the L<XML::LibXML::Document> object.
 
+=head2 head
+
+The head element.
+
+=head2 body
+
+The body element.
+
+Note there is always an implicit head and body even with fragments because libxml creates them, well, we ask it to do so.
+
+=head2 as_fragment
+
+Returns the original (intent-wise) fragment or the elements within the body if starting with a full document.
+
+=head2 as_string
+
+Stringified version of object. If the object was created from an HTML fragment, a fragment will be returned.
+
+=head2 debug
+
+Yep. 1-5 with higher giving more info to STDERR.
+
+=head2 is_document
+
+Returns true if the originally parsed item was a full HTML document.
+
+=head2 is_fragment
+
+Returns true if the originally parsed item was a fragment.
+
+=head2 same_same
+
+Takes another XHTML::Util object or the valid argument to create one. Attempts to determine if the resulting object is the same as the calling object. E.g.,
+
+ print $xu->same_same(\"<p>OH HAI</p>") ?
+     "Yepper!\n" : "Noes...\n";
+
+=head2 tags
+
+Returns a list of all known HTML tags. Please ignore method. I'm not sure it's a good idea, well named, or will remain.
+
 =head2 selector_to_xpath
 
 This wraps L<selector_to_xpath HTML::Selector::Xpath/selector_to_xpath>. Not really meant to be used but exposed in case you want it.
@@ -735,15 +763,15 @@ This wraps L<selector_to_xpath HTML::Selector::Xpath/selector_to_xpath>. Not rea
 
 I think the default doc should be \"". There is no reason to jump through that hoop if wanting to build up something from scratch.
 
-Finish spec and tests. Get it running solid enough to remove alpha label. Generalize the argument handling. Provide optional setting or methods for returning nodes intead of serialized content. Improve document/head related handling/options.
+Finish spec and tests. Get it running solid enough to remove alpha label. Generalize the argument handling. Provide optional setting or methods for returning nodes instead of serialized content. Improve document/head related handling/options.
 
 I can see this being easier to use functionally. I haven't decided on the argspec or method--E<gt>sub approach for that yet. I think it's a good idea.
 
 =head1 BUGS AND LIMITATIONS
 
-All input should be UTF-8 or at least safe to run L<Encode::decode_utf8> on. Regular Latin character sets, I suspect, will be fine but extended sets will probably give garbage or unpredictable results; guessing.
+All input should be UTF-8 or at least safe to run L<decode_utf8|Encode/decode_utf8> on. Regular Latin character sets, I suspect, will be fine but extended sets will probably give garbage or unpredictable results; guessing.
 
-This will wreck XML and probably XHTML with a custom DTD too. It uses L<HTML::Tagset>'s conception of what valid tags are. This is not optimal but it is easier than DTD handlig. It might improve to more automatic detection in the future.
+This will wreck XML and probably XHTML with a custom DTD too. It uses L<HTML::Tagset>'s conception of what valid tags are. This is not optimal but it is easier than DTD handling. It might improve to more automatic detection in the future.
 
 I have used many of these methods and snippets in many projects and I'm tired of recycling them. Some are extremely useful and, at least in the case of L</enpara>, better than any other implementation I've been able to find in any language.
 
@@ -753,7 +781,7 @@ That said, a lot of the code herein is not well tested or at least not well test
 
 L<XML::LibXML>, L<HTML::Tagset>, L<HTML::Entities>, L<HTML::Selector::XPath>, L<HTML::TokeParser::Simple>, L<CSS::Tiny>.
 
-L<CSS W3Schools|http://www.w3schools.com/Css/default.asp>, L<Learning CSS at W3C|http://www.w3.org/Style/CSS/learning>.
+CSS W3Schools, L<http://www.w3schools.com/Css/default.asp>, Learning CSS at W3C, L<http://www.w3.org/Style/CSS/learning>.
 
 =head1 AUTHOR
 
@@ -840,7 +868,7 @@ We WILL NOT be covering other well known and well done implementations like HTML
 # translate div p
 # replace //a@href... || a[href^=...] 'content' || call back
 
-HTML TO XHTML will have to strip depracated shite like center and font.
+HTML TO XHTML will have to strip deprecated shite like center and font.
 
 
 12212g
@@ -860,3 +888,5 @@ SANITIZE IS BREAKING THE XML DTD HEADERS AND CDATA
 Mention HTML::Restrict
 
     Test::Harness
+
+Things like wrap() should be quite easy to add...

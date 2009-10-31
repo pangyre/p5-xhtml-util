@@ -1,5 +1,8 @@
 Changes file for XHTML::Util
 
+0.99_03 Fri Oct 30 20:57:08 PDT 2009
+        - Fixed some  Pod omissions and errors.
+
 0.99_02  Fri Oct 30 17:35:34 PDT 2009
         - Fixed some minor Pod errors.
         - Took out file which had no business being here and a stupid
