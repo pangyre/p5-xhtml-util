@@ -16,7 +16,7 @@ use XML::Normalize::LibXML qw( xml_normalize );
 
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_03";
+our $VERSION = "0.99_04";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -536,7 +536,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_03
+0.99_04
 
 =head1 SYNOPSIS
 
@@ -624,7 +624,13 @@ Takes a CSS selector string. Completely removes the matched nodes, including the
 
 =head2 traverse
 
-[Not implemented.] Walks the given nodes and executes the given callback.
+Walks the given nodes and executes the given callback. Can be called with a selector or without. If called with a selector, the callback sub receives the selected nodes as its arguments.
+
+ $xu->traverse("div.fancy", sub { my $div_node = shift });
+
+Without a selector it receives the document root.
+
+ $xu->traverse(sub { my $root = shift });
 
 =head2 translate_tags
 
