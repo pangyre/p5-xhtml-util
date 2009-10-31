@@ -1,7 +1,9 @@
 Changes file for XHTML::Util
 
-0.99_02  
+0.99_02  Fri Oct 30 17:35:34 PDT 2009
         - Fixed some minor Pod errors.
+        - Took out file which had no business being here and a stupid
+          local file test leftover.
 
 0.99_01 Thu Oct 29 23:12:37 PDT 2009
         - Redraft. API changes.
