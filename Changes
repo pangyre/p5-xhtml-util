@@ -1,6 +1,10 @@
 Changes file for XHTML::Util
 
-0.99_04 
+0.99_05 Sun Nov  1 09:45:53 PST 2009
+        - Added clone and the Cookbook.
+
+0.99_04 Sat Oct 31 08:23:53 PDT 2009
+        - A leftover test/dup of the .pm got uploaded in the last one.
 
 0.99_03 Fri Oct 30 20:57:08 PDT 2009
         - Fixed some Pod omissions and errors.

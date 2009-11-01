@@ -13,10 +13,10 @@ use Encode;
 use Scalar::Util qw( blessed );
 use HTML::TokeParser::Simple;
 use XML::Normalize::LibXML qw( xml_normalize );
-
+use LWP::Simple ();
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_04";
+our $VERSION = "0.99_05";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -56,11 +56,18 @@ sub new {
     if ( ref($arg) eq "SCALAR" )
     {
         $self->_parse( $$arg );
-        # $self->_original_string( $$arg );
     }
     elsif ( blessed($arg) eq "Path::Class::File" )
     {
         $self->_parse( scalar $arg->slurp );
+    }
+    elsif ( blessed($arg) eq __PACKAGE__ )
+    {
+        $self->_parse( $arg->as_string ); # Cloning.
+    }
+    elsif ( blessed($arg) =~ /\AURI::https?/ )
+    {
+        $self->_parse( LWP::Simple::get($arg) );
     }
     elsif ( blessed($arg) and $arg->can("getlines") )
     {
@@ -155,6 +162,10 @@ sub root {
 
 sub doc {
     +shift->{_doc};
+}
+
+sub text {
+    +shift->doc->getDocumentElement->textContent;
 }
 
 sub parser {
@@ -526,6 +537,12 @@ sub same_same {
     $one eq $two or die "$one\n\n$two"
 }
 
+sub clone {
+    my $self = shift;
+    my $class = blessed($self);
+    $class->new($self);
+}
+
 1;
 
 __END__
@@ -536,7 +553,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_04
+0.99_05
 
 =head1 SYNOPSIS
 
@@ -717,6 +734,10 @@ The L<XML::LibXML::Document> object created from input.
 
 The documentElement of the L<XML::LibXML::Document> object.
 
+=head2 text
+
+The C<textContent> of the root node.
+
 =head2 head
 
 The head element.
@@ -746,6 +767,8 @@ Returns true if the originally parsed item was a full HTML document.
 =head2 is_fragment
 
 Returns true if the originally parsed item was a fragment.
+
+=head2 clone
 
 =head2 same_same
 
@@ -788,6 +811,10 @@ That said, a lot of the code herein is not well tested or at least not well test
 L<XML::LibXML>, L<HTML::Tagset>, L<HTML::Entities>, L<HTML::Selector::XPath>, L<HTML::TokeParser::Simple>, L<CSS::Tiny>.
 
 CSS W3Schools, L<http://www.w3schools.com/Css/default.asp>, Learning CSS at W3C, L<http://www.w3.org/Style/CSS/learning>.
+
+=head1 REPOSITORY
+
+git://github.com/pangyre/p5-xhtml-util
 
 =head1 AUTHOR
 

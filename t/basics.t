@@ -2,10 +2,10 @@ use strict;
 use warnings;
 use Test::More "no_plan";
 use Test::Exception;
-use FindBin;
+use FindBin qw( $Bin );
 use File::Spec;
 use Path::Class;
-use lib File::Spec->catfile($FindBin::Bin, '../lib');
+use lib File::Spec->catfile($Bin, '../lib');
 use XHTML::Util;
 
 dies_ok( sub { my $xu = XHTML::Util->new },

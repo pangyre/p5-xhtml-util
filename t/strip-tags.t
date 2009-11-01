@@ -45,5 +45,26 @@ BEFORE
 
 #<i><b>two</b>...</i>
 
+}
+
+{
+    my $script = <<'_script_';
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js"
+  type="text/javascript"></script>
+<script type="text/javascript">//<![CDATA[
+jQuery(function($) {
+  $("body").html("<h1>OH HAI</h1>");
+});
+//]]> </script>
+_script_
+
+    my $xu = XHTML::Util->new(\$script);
+    my $xu2 = XHTML::Util->new(\$script); # Breaks with clone, so clone is wonky.
+    $xu->strip_tags("script");
+    like( $xu, qr/jQuery/,
+          "Script text remains after strip_tags(script)" );
+    $xu2->remove("script");
+    is( $xu2, "",
+        "Nothing remains after remove(script)" );
 
 }

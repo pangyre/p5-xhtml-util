@@ -1,0 +1,58 @@
+=pod
+
+=head1 NAME
+
+XHTML::Util::Cookbook
+
+=head2 Strip all HTML
+
+=head3 Destructive
+
+ print $xu->strip_tags(join(",", $xu->tags));
+
+Note that this is a destructive action. The tags are gone from the object.
+
+=head3 Non-destructive
+
+ print $xu->text;
+
+Remember you have access to the underlying L<XML::LibXML::Document> through the C<doc> and C<root> methods. So the above is really just a convenience shortcut for-
+
+ print $xu->root->textContent;
+
+This is non-destructive. The tags are still in the object.
+
+=head2 Bag it
+
+=head2 Strip scripts
+
+=head3 Keeping the script content
+
+ $xu->strip_tags("script");
+
+=head3 Removing tag and its content
+
+ $xu->remove("script");
+
+=head2 Strip links, leaving text
+
+ $xu = XHTML::Util->new(\q{Click <a href="#">here</a>});
+ print $xu->strip_tags("a");
+
+=head2 Strip external (non-relative) links, leaving text
+
+ print $xu->strip_tags("a['href^=http']");
+
+=head2 Transform text
+
+To do.
+
+=head2 Custom tags
+
+To do.
+
+=head1 SEE ALSO
+
+L<XHTML::Util>.
+
+=cut
