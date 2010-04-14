@@ -16,7 +16,7 @@ use XML::Normalize::LibXML qw( xml_normalize );
 use LWP::Simple ();
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_05";
+our $VERSION = "0.99_06";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -72,6 +72,10 @@ sub new {
     elsif ( blessed($arg) and $arg->can("getlines") )
     {
         $self->_parse( join("", $arg->getlines) );
+    }
+    elsif ( ref($arg) eq 'GLOB' )
+    {
+        # $self->_parse( scalar Path::Class::File->new($arg)->slurp );
     }
     else
     {
@@ -553,7 +557,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_05
+0.99_06
 
 =head1 SYNOPSIS
 

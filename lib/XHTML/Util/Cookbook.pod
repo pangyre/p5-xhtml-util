@@ -43,6 +43,16 @@ This is non-destructive. The tags are still in the object.
 
  print $xu->strip_tags("a['href^=http']");
 
+=head2 Wrap pre content
+
+Long lines in E<lt>pre/E<gt> tags can wreck layouts or overflow and be unreadable.
+
+ 
+
+=head2 Downgrade headers
+
+To do.
+
 =head2 Transform text
 
 To do.

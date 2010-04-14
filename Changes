@@ -1,5 +1,9 @@
 Changes file for XHTML::Util
 
+0.99_06 Tue Apr 13 19:42:25 PDT 2010
+        - Fixed deps a bit; #51158 and more.
+        - Not sure what else! Ain't coding grand?
+
 0.99_05 Sun Nov  1 09:45:53 PST 2009
         - Added clone and the Cookbook.
 
