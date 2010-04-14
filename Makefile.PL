@@ -23,7 +23,11 @@ build_requires "Test::More" => 0.5;
 build_requires "Test::Exception" => 0.2;
 build_requires "File::Spec" => 3;
 
-system( 'pod2text lib/XHTML/Util.pm > README' );
+if ( $Module::Install::AUTHOR )
+{
+    system("pod2text lib/CatalystX/Plugin/Blurb.pm > README") == 0
+        or die "Couldn't update the README";
+}
 
 auto_install;
 WriteAll;
