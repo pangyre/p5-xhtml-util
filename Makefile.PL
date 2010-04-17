@@ -10,6 +10,11 @@ requires "Encode" => 2;
 requires "HTML::Tagset" => 3.02;
 requires "XML::LibXML" => "1.69"; # Is this where unicode was all normalized?
 requires "XML::Normalize::LibXML";
+
+# Not sure where these two are coming from but they're in fail reports.
+requires "Algorithm::Diff";
+requires "YAML";
+
 requires "Scalar::Util";
 requires "HTML::Tagset" => 3.02;
 requires "HTML::DTD" => 0.03;
@@ -25,7 +30,7 @@ build_requires "File::Spec" => 3;
 
 if ( $Module::Install::AUTHOR )
 {
-    system("pod2text lib/CatalystX/Plugin/Blurb.pm > README") == 0
+    system("pod2text lib/XHTML/Util.pm > README") == 0
         or die "Couldn't update the README";
 }
 
