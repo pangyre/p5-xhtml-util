@@ -16,7 +16,7 @@ use XML::Normalize::LibXML qw( xml_normalize );
 use LWP::Simple ();
 use overload q{""} => sub { +shift->as_string }, fallback => 1;
 
-our $VERSION = "0.99_07";
+our $VERSION = "0.99_08";
 our $AUTHORITY = 'cpan:ASHLEY';
 our $TITLE_ATTR = join("/", __PACKAGE__, $VERSION);
 
@@ -557,7 +557,7 @@ XHTML::Util - (alpha software) powerful utilities for common but difficult to na
 
 =head2 VERSION
 
-0.99_07
+0.99_08
 
 =head1 SYNOPSIS
 

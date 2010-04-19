@@ -1,5 +1,8 @@
 Changes file for XHTML::Util
 
+0.99_08 Sun Apr 18 17:44:37 PDT 2010
+        - Stupid me, testing deps were bad.
+
 0.99_07 Fri Apr 16 17:42:30 PDT 2010
         - Deps from CPAN tester reports; YAML and Algorithm::Diff.
         - Problem with README generation fixed.
