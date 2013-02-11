@@ -627,7 +627,7 @@ Will remove the script tagsE<mdash>not the script content thoughE<mdash>so the n
  print $xu->as_string, $/;
  # alert("OH HAI")
 
-Well... really you'll get C<< E<lt>![CADET'S[alert(&quot;OH HAI&quot;)]]E<gt> >>.
+Well... really you'll get C<< E<lt>![CDATA[alert(&quot;OH HAI&quot;)]]E<gt> >>.
 
 =head1 METHODS
 
@@ -639,7 +639,7 @@ Creates a new C<XHTML::Util> object.
 
 Why you might need this-
 
- my $post_title = "I <3 <a href="http://icanhascheezburger.com/">jitters</a>";
+ my $post_title = "I <3 <a href="http://icanhascheezburger.com/">kittehs</a>";
  my $bloc_link = some_link_maker($post_title);
  print $bloc_link;
 
@@ -647,7 +647,7 @@ Why you might need this-
 
 That isn't legal so there's no definition for what browsers should do with it. Some sort of tolerate it, some don't. It's never going to be a good user experience.
 
-What you can do is something like Thais<ndash>
+What you can do is something like thisE<ndash>
 
  my $post_title = "I <3 <a href="http://icanhascheezburger.com/">kittehs</a>";
  my $safe_title = $xu->strip_tags($post_title, ["a"]);
