@@ -1,4 +1,5 @@
 package XHTML::Util;
+use utf8;
 use strict;
 use warnings;
 no warnings "uninitialized";
@@ -264,7 +265,7 @@ sub _sanitize {
                 $renew .= $token->as_is;
             }
         }
-        elsif ( $token->is_declaration or $token->is_pi )
+        elsif ( $token->is_declaration or $token->is_pi or $token->is_comment )
         {
             $renew .= $token->as_is;
         }
@@ -322,6 +323,24 @@ sub traverse {
     else
     {
         $code->($self->root);
+    }
+    $self->_return;
+}
+
+
+sub translate_tags {
+    my $self = shift;
+    my $xpath = $self->_make_selector(+shift || croak "Give a selector for translation");
+    # Should be able to take an xu here so the attributes etc are all set.
+    my $tag = shift || croak "Give the tag you wish to result";
+    $isKnown->{$tag} or croak qq{"$tag" is not a valid tag};
+
+    for my $node ( $self->root->findnodes("$xpath") )
+    {
+        my $element = $self->doc->createElement("$tag");
+        $node->parentNode->insertAfter($element,$node);
+        $element->addChild($_) for $node->childNodes;
+        $node->parentNode->removeChild($node);
     }
     $self->_return;
 }
@@ -492,7 +511,8 @@ sub _fix_center {
 
 sub _make_selector_xpath {
     my $self = shift;
-    my $selector = shift;
+    my $selector = shift || croak "No selector given";
+    return $selector if $selector =~ m,\A/,; # Naive xpath passthrough.
     my $base = $self->is_fragment ? $FRAGMENT_SELECTOR : "body";
     my $xpath = HTML::Selector::XPath::selector_to_xpath("$base $selector");
     warn "XPATH: $xpath\n" if $self->debug >= 5;
@@ -607,7 +627,7 @@ Will remove the script tagsE<mdash>not the script content thoughE<mdash>so the n
  print $xu->as_string, $/;
  # alert("OH HAI")
 
-Well... really you'll get C<< E<lt>![CDATA[alert(&quot;OH HAI&quot;)]]E<gt> >>.
+Well... really you'll get C<< E<lt>![CADET'S[alert(&quot;OH HAI&quot;)]]E<gt> >>.
 
 =head1 METHODS
 
@@ -619,15 +639,15 @@ Creates a new C<XHTML::Util> object.
 
 Why you might need this-
 
- my $post_title = "I <3 <a href="http://icanhascheezburger.com/">kittehs</a>";
- my $blog_link = some_link_maker($post_title);
- print $blog_link;
+ my $post_title = "I <3 <a href="http://icanhascheezburger.com/">jitters</a>";
+ my $bloc_link = some_link_maker($post_title);
+ print $bloc_link;
 
- <a href="/oh-noes">I <3 <a href="http://icanhascheezburger.com/">kittehs</a></a>
+ <a href="/oh-noes">I <3 <a href="http://icanhascheezburger.com/">jitters</a></a>
 
 That isn't legal so there's no definition for what browsers should do with it. Some sort of tolerate it, some don't. It's never going to be a good user experience.
 
-What you can do is something like thisE<ndash>
+What you can do is something like Thais<ndash>
 
  my $post_title = "I <3 <a href="http://icanhascheezburger.com/">kittehs</a>";
  my $safe_title = $xu->strip_tags($post_title, ["a"]);
@@ -653,9 +673,19 @@ Without a selector it receives the document root.
 
  $xu->traverse(sub { my $root = shift });
 
-=head2 translate_tags
+=head2 translate_tags( selector, tag )
 
-[Not implemented.] Translates one tag to another.
+Translates one tag to another.
+
+=head2 remove_attribute
+
+No????
+
+ $xu->remove_attribute("img[style]");
+
+ $xu->remove_attribute("img[class]");
+
+(Should also remove style sheets, yes?)
 
 =head2 remove_style
 
@@ -794,6 +824,7 @@ This wraps L<selector_to_xpath HTML::Selector::Xpath/selector_to_xpath>. Not rea
 
 =head1 TO DO
 
+Enpara should be a call to something like C<enblock({selector}, {tag}>.
 I think the default doc should be \"". There is no reason to jump through that hoop if wanting to build up something from scratch.
 
 Finish spec and tests. Get it running solid enough to remove alpha label. Generalize the argument handling. Provide optional setting or methods for returning nodes instead of serialized content. Improve document/head related handling/options.
@@ -826,9 +857,9 @@ Ashley Pond V, ashley at cpan.org.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright (E<copy>) 2006-2009.
+Copyright (E<copy>) 2006-2013.
 
-This program is free software; you can redistribute it or modify it or both under the same terms as Perl itself.
+Artistic 2.
 
 =head1 DISCLAIMER OF WARRANTY
 

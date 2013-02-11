@@ -40,6 +40,7 @@ use autodie;
     is( $enparaed, $after,
         "Enpara'ed content of 'before' matches 'after'" );
 
+    # This is calling out instead of using install DTDs. :|
     ok( $xu->is_valid,
         "Document validates" );
 
